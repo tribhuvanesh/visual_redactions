@@ -21,7 +21,7 @@ from scipy.misc import imread
 
 from privacy_filters.tools.common.utils import get_image_filename_index, clean_via_annotations
 from privacy_filters.tools.common.image_utils import resize_min_side
-from evaltools import  get_mask, via_regions_to_poygons, compute_eval_metrics, visualize_errors, resize_polygons
+from privacy_filters.tools.evaltools.evaltools import  get_mask, via_regions_to_polygons, compute_eval_metrics, visualize_errors, resize_polygons
 
 from privacy_filters.tools.common. timer import Timer
 
@@ -86,8 +86,8 @@ def main():
         im = Image.open(img_path)
         w, h = im.size
 
-        gt_polygons = via_regions_to_poygons(gt_regions)
-        pred_polygons = via_regions_to_poygons(pred_regions)
+        gt_polygons = via_regions_to_polygons(gt_regions)
+        pred_polygons = via_regions_to_polygons(pred_regions)
 
         if params['scale']:
             with Timer() as t:

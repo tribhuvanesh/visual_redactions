@@ -16,9 +16,11 @@ import shutil
 import numpy as np
 import matplotlib.pyplot as plt
 
-from PIL import Image
+from PIL import Image, ImageDraw
 from scipy.misc import imread
 from matplotlib.path import Path as mpath
+
+from privacy_filters.tools.common.plot_utils import gen_n_colors
 
 __author__ = "Tribhuvanesh Orekondy"
 __maintainer__ = "Tribhuvanesh Orekondy"
@@ -26,7 +28,7 @@ __email__ = "orekondy@mpi-inf.mpg.de"
 __status__ = "Development"
 
 
-def get_mask(nx, ny, poly_verts_list):
+def get_mask(nx, ny, poly_verts_list, retain_instances=False, return_grid_list=False):
     """
     Represent a set of polygons on grid size (nx x ny) as a mask. This mask will be of size (nx, ny), the
     polygons represented 1s and the remaining areas with 0s.
@@ -54,11 +56,24 @@ def get_mask(nx, ny, poly_verts_list):
         grid = grid.reshape((ny, nx))
         grid_list.append(grid)
 
-    combined_grid = reduce(lambda x, y: x | y, grid_list)
+    if return_grid_list:
+        return grid_list
+
+    if not retain_instances:
+        combined_grid = reduce(lambda x, y: x | y, grid_list)
+    else:
+        combined_grid = np.zeros_like(grid_list[0])
+        for idx in range(len(grid_list)):
+            # Tag each instance with a particular number
+            instance_id = idx + 1
+            this_instance_grid = grid_list[idx]
+            # Find pixels that have not been tagged with an instance yet
+            unselected_pixels = np.logical_and(combined_grid == 0, this_instance_grid == 1)
+            combined_grid[unselected_pixels] = instance_id
     return combined_grid.astype(int)
 
 
-def via_regions_to_poygons(via_regions):
+def via_regions_to_polygons(via_regions):
     poly_verts_list = []
     for idx, (region_id, region_dct) in enumerate(via_regions.iteritems()):
         poly_verts = zip(region_dct['shape_attributes']['all_points_x'], region_dct['shape_attributes']['all_points_y'])
@@ -106,11 +121,80 @@ def convert_mask_to_img(mask, hot_color):
     return im
 
 
+def visualize_masks(im, mask_list, img_out_path):
+    """
+
+    :param im: PIL Image
+    :param mask: mask containing ints \in [-1, 0, 1, .., N]
+    :return:
+    """
+    plt.clf()
+    plt.figure(figsize=(15, 10))
+    w, h = im.size
+
+    # Actual Image
+    plt.subplot(211)
+    plt.axis('off')
+    plt.imshow(im)
+    plt.title('Image')
+
+    # Overlay
+    plt.subplot(212)
+    plt.axis('off')
+    plt.imshow(im)
+    # Sort masks by size of this instance
+    mask_list = sorted(mask_list, key=lambda x: np.sum(x))
+    colors = gen_n_colors(len(mask_list))
+    for i, mask in enumerate(mask_list):
+        colored_mask_im = convert_mask_to_img(mask, hot_color=colors[i])
+        plt.imshow(colored_mask_im, alpha=0.6)
+    plt.title('Instances')
+
+    plt.savefig(img_out_path)
+    plt.close('all')
+
+
+def visualize_polygons(im, poly_verts_list, img_out_path):
+    """
+
+    :param im:
+    :param poly_verts_list:
+    :param img_out_path:
+    :return:
+    """
+    plt.clf()
+    plt.figure(figsize=(15, 10))
+    w, h = im.size
+
+    # Actual Image
+    plt.subplot(211)
+    plt.axis('off')
+    plt.imshow(im)
+    plt.title('Image')
+
+    # Overlay
+    plt.subplot(212)
+    plt.axis('off')
+    colors = gen_n_colors(len(poly_verts_list))
+    # Draw polygons on image
+    imp = im.copy()
+    draw = ImageDraw.Draw(imp, 'RGBA')
+    for idx, poly in enumerate(poly_verts_list):
+        fill_col = (int(colors[idx][0]), int(colors[idx][1]), int(colors[idx][2]), 175)
+        draw.polygon(poly_verts_list[idx], fill=fill_col, outline=(0, 0, 0, 255))
+    del draw
+    plt.imshow(imp)
+    plt.title('Instances')
+
+    plt.savefig(img_out_path)
+    plt.close('all')
+
+
 def visualize_errors(im, gt_mask, pred_mask, img_out_path, metrics_text=''):
-    '''
+    """
     Masks contain [-1, 0, 1]
     -1 indicates ignore regions
-    '''
+    """
     plt.clf()
     plt.figure(figsize=(20, 15))
     w, h = im.size
