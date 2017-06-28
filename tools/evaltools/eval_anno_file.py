@@ -20,7 +20,10 @@ from PIL import Image
 from scipy.misc import imread
 
 from privacy_filters.tools.common.utils import get_image_filename_index, clean_via_annotations
-from evaltools import  get_mask, via_regions_to_poygons, compute_eval_metrics, visualize_errors
+from privacy_filters.tools.common.image_utils import resize_min_side
+from evaltools import  get_mask, via_regions_to_poygons, compute_eval_metrics, visualize_errors, resize_polygons
+
+from privacy_filters.tools.common. timer import Timer
 
 __author__ = "Tribhuvanesh Orekondy"
 __maintainer__ = "Tribhuvanesh Orekondy"
@@ -33,6 +36,7 @@ def main():
     parser.add_argument("gt_file", type=str, help="Path to GT list of VIA annotations")
     parser.add_argument("pred_file", type=str, help="Path to predicted list of VIA annotations")
     parser.add_argument("-v", "--visualize", type=str, default=None, help="Place visualizations in this directory")
+    parser.add_argument("-s", "--scale", action='store_true', default=False, help="Scale images to reduce computation")
     args = parser.parse_args()
 
     params = vars(args)
@@ -55,6 +59,7 @@ def main():
     common_fname_set = gt_via_fname_set & pred_via_fname_set
 
     num_skipped = 0
+    num_skip_eval = 0
 
     precision_list = []
     recall_list = []
@@ -70,25 +75,52 @@ def main():
         pred_regions = pred_anno['regions']
 
         # Evaluate only if both files contains at least one region
-        if len(gt_regions) == 0 or len(pred_regions) == 0:
+        if len(gt_regions) == 0 and len(pred_regions) == 0:
             num_skipped += 1
             continue
-
-        gt_polygons = via_regions_to_poygons(gt_regions)
-        pred_polygons = via_regions_to_poygons(pred_regions)
+        elif len(gt_regions) == 0 or len(pred_regions) == 0:
+            num_skip_eval += 1
+            continue
 
         img_path = gt_anno['filepath']
         im = Image.open(img_path)
         w, h = im.size
 
-        gt_mask = get_mask(w, h, gt_polygons)
-        pred_mask = get_mask(w, h, pred_polygons)
+        gt_polygons = via_regions_to_poygons(gt_regions)
+        pred_polygons = via_regions_to_poygons(pred_regions)
+
+        if params['scale']:
+            with Timer() as t:
+                # Scale image and polygons to a smaller size to reduce computation
+                scaled_im = resize_min_side(im, 760)
+                scaled_w, scaled_h = scaled_im.size
+
+                x_shrink_factor = scaled_w/float(w)
+                y_shrink_factor = scaled_h / float(h)
+
+                gt_polygons = resize_polygons(gt_polygons,
+                                              x_shrink_factor=x_shrink_factor,
+                                              y_shrink_factor=y_shrink_factor)
+                pred_polygons = resize_polygons(pred_polygons,
+                                                x_shrink_factor=x_shrink_factor,
+                                                y_shrink_factor=y_shrink_factor)
+                w, h, im = scaled_w, scaled_h, scaled_im
+            # print '[scaling] t={:.2f}s'.format(t.secs)
+
+        with Timer() as t:
+            gt_mask = get_mask(w, h, gt_polygons)
+        # print '[gt-get_mask] w={}, h={}, t={:.2f}s'.format(w, h, t.secs)
+
+        with Timer() as t:
+            pred_mask = get_mask(w, h, pred_polygons)
+        # print '[pred-get_mask] w={}, h={}, t={:.2f}s'.format(w, h, t.secs)
 
         this_precision, this_recall, this_iou = compute_eval_metrics(gt_mask, pred_mask)
 
-        precision_list.append(this_precision)
-        recall_list.append(this_recall)
-        iou_list.append(this_iou)
+        if len(gt_regions) > 0 and len(pred_regions) > 0:
+            precision_list.append(this_precision)
+            recall_list.append(this_recall)
+            iou_list.append(this_iou)
 
         if params['visualize'] is not None:
             vis_out_dir = params['visualize']
@@ -100,10 +132,13 @@ def main():
             metrics_text = 'Precision = {:.2f}   '.format(100 * this_precision)
             metrics_text += 'Recall    = {:.2f}   '.format(100 * this_recall)
             metrics_text += 'IoU       = {:.2f}\n\n'.format(100 * this_iou)
-            visualize_errors(im, gt_mask, pred_mask, img_out_path, metrics_text)
-
+            with Timer() as t:
+                visualize_errors(im, gt_mask, pred_mask, img_out_path, metrics_text)
+            # print '[visualize_errors] t={:.2f}s'.format(t.secs)
+            # print
 
     print
+    print 'Skipped {} images during evaluation (either gt/pred is marked as crowd)'.format(num_skip_eval)
     print 'Evaluating over {} images: '.format(len(precision_list))
     print 'Mean Precision = {:.2f}'.format(100 * np.mean(precision_list))
     print 'Mean Recall    = {:.2f}'.format(100 * np.mean(recall_list))

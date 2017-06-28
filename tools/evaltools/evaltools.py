@@ -36,6 +36,9 @@ def get_mask(nx, ny, poly_verts_list):
     :param poly_verts_list: List of polygons in the format [ [(x1, y1), (x2, y2), ...], ...]
     :return:
     """
+    if poly_verts_list == []:
+        # In case there are no polygons, simply return an empty canvas
+        return np.zeros((ny, nx))
     # Create vertex coordinates for each grid cell...
     # (<0,0> is at the top left of the grid in this system)
     # Source: https://stackoverflow.com/questions/3654289/scipy-create-2d-polygon-mask
@@ -63,6 +66,11 @@ def via_regions_to_poygons(via_regions):
     return poly_verts_list
 
 
+def resize_polygons(poly_verts_list, x_shrink_factor=1.0, y_shrink_factor=1.0):
+    # Polygon format is [ [(x1, y1), (x2, y2), ...], [(x1, y1), (x2, y2), ...], ...]
+    return map(lambda poly: map(lambda xy: (xy[0] * x_shrink_factor, xy[1] * y_shrink_factor), poly), poly_verts_list)
+
+
 def compute_eval_metrics(gt_mask, pred_mask):
     """
     Evaluate a mask w.r.t a GT mask
@@ -71,13 +79,18 @@ def compute_eval_metrics(gt_mask, pred_mask):
     :return:
     """
     assert (gt_mask.size == pred_mask.size)
-    tp = float(np.sum(np.logical_and(pred_mask == 1, gt_mask == 1)))
-    fp = float(np.sum(np.logical_and(pred_mask == 1, gt_mask == 0)))
-    fn = float(np.sum(np.logical_and(pred_mask == 0, gt_mask == 1)))
 
-    prec = tp / (tp + fp)
-    rec = tp / (tp + fn)
-    iou = tp / (tp + fn + fp)
+    if np.sum(gt_mask) == 0 or np.sum(pred_mask) == 0:
+        # Handle the special case where only a single mask is annotated and the other hasn't been
+        prec, rec, iou = 0.0, 0.0, 0.0
+    else:
+        tp = float(np.sum(np.logical_and(pred_mask == 1, gt_mask == 1)))
+        fp = float(np.sum(np.logical_and(pred_mask == 1, gt_mask == 0)))
+        fn = float(np.sum(np.logical_and(pred_mask == 0, gt_mask == 1)))
+
+        prec = tp / (tp + fp)
+        rec = tp / (tp + fn)
+        iou = tp / (tp + fn + fp)
 
     return prec, rec, iou
 

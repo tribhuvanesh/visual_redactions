@@ -45,7 +45,7 @@ def get_image_filename_index():
             for img_filename in os.listdir(osp.join(images_dir, fold)):
                 image_path = osp.join(images_dir, fold, img_filename)
                 fname_index[img_filename] = image_path
-        pickle.dump(index_path, open("save.p", "wb"))
+        pickle.dump(fname_index, open(index_path, 'wb'))
         return fname_index
 
 
