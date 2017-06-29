@@ -60,6 +60,8 @@ def main():
 
     num_skipped = 0
     num_skip_eval = 0
+    num_only_in_gt = 0
+    num_only_in_other = 0
 
     precision_list = []
     recall_list = []
@@ -80,7 +82,10 @@ def main():
             continue
         elif len(gt_regions) == 0 or len(pred_regions) == 0:
             num_skip_eval += 1
-            continue
+            if len(pred_regions) == 0:
+                num_only_in_gt += 1
+            elif len(gt_regions) == 0:
+                num_only_in_other += 1
 
         img_path = gt_anno['filepath']
         im = Image.open(img_path)
@@ -123,12 +128,20 @@ def main():
             iou_list.append(this_iou)
 
         if params['visualize'] is not None:
-            vis_out_dir = params['visualize']
+            if len(gt_regions) == 0 or len(pred_regions) == 0:
+                vis_out_dir = osp.join(params['visualize'], 'skipped')
+            else:
+                vis_out_dir = params['visualize']
             if not osp.exists(vis_out_dir):
                 print 'Path {} does not exist. Creating it...'.format(vis_out_dir)
                 os.mkdir(vis_out_dir)
 
-            img_out_path = osp.join(vis_out_dir, this_filename)
+            if len(gt_regions) == 0 or len(pred_regions) == 0:
+                img_out_path = osp.join(vis_out_dir, this_filename)
+            else:
+                # Use recall as prefix
+                new_filename = '{:04d}_{}'.format(int(10**4 * this_recall), this_filename)
+                img_out_path = osp.join(vis_out_dir, new_filename)
             metrics_text = 'Precision = {:.2f}   '.format(100 * this_precision)
             metrics_text += 'Recall    = {:.2f}   '.format(100 * this_recall)
             metrics_text += 'IoU       = {:.2f}\n\n'.format(100 * this_iou)
@@ -139,6 +152,9 @@ def main():
 
     print
     print 'Skipped {} images during evaluation (either gt/pred is marked as crowd)'.format(num_skip_eval)
+    print 'Only annotated in GT = ', num_only_in_gt
+    print 'Only annotated in Pred = ', num_only_in_other
+    print
     print 'Evaluating over {} images: '.format(len(precision_list))
     print 'Mean Precision = {:.2f}'.format(100 * np.mean(precision_list))
     print 'Mean Recall    = {:.2f}'.format(100 * np.mean(recall_list))

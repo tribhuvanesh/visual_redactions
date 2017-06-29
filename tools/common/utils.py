@@ -51,8 +51,10 @@ def get_image_filename_index():
 
 def clean_via_annotations(anno_path, img_fname_index=None):
     """
-    Clean and add some additional info to via annotations
+    Clean and add some additional info to via annotations.
+    Example annotation: https://pastebin.com/cP3RCS3i
     :param anno_path:
+    :param img_fname_index:
     :return:
     """
     if img_fname_index is None:
@@ -63,7 +65,7 @@ def clean_via_annotations(anno_path, img_fname_index=None):
 
     via_cleaned_anno = dict()
 
-    # The annotations are indexed by <filename><fileisize>. Fix this to just <filename>.
+    # The annotations are indexed by <filename><file_size>. Fix this to just <filename>.
     # Additionally, add filepath to entry
     for key, entry in via_anno.iteritems():
         this_img_filename = entry['filename']
@@ -78,5 +80,25 @@ def clean_via_annotations(anno_path, img_fname_index=None):
         entry['filename'] = this_img_filename
 
         via_cleaned_anno[this_img_filename] = entry
+
+        # Add an instance id to each region
+        # Each region either: (a) contains an instance_id attribute OR (b) does not contain it
+        # In case of (b), we need to assign it a random id
+
+        # Generate some random IDs
+        rand_ids = range(100)
+        # Mapping to tag instance "p_N" to an instance id
+        tag_to_instance_id = dict()
+        for k, region_dct in entry['regions'].iteritems():
+            if 'instance_id' in region_dct['region_attributes']:
+                # This region has been tagged with a "p_N"
+                if region_dct['region_attributes']['instance_id'] in tag_to_instance_id:
+                    this_instance_id = tag_to_instance_id[region_dct['region_attributes']['instance_id']]
+                else:
+                    this_instance_id = rand_ids.pop(0)
+                    tag_to_instance_id[region_dct['region_attributes']['instance_id']] = this_instance_id
+            else:
+                this_instance_id = rand_ids.pop(0)
+            region_dct['assigned_instance_id'] = this_instance_id
 
     return via_cleaned_anno

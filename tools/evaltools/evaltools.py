@@ -73,12 +73,19 @@ def get_mask(nx, ny, poly_verts_list, retain_instances=False, return_grid_list=F
     return combined_grid.astype(int)
 
 
-def via_regions_to_polygons(via_regions):
+def via_regions_to_polygons(via_regions, include_instance=False):
     poly_verts_list = []
+    instance_list = []
     for idx, (region_id, region_dct) in enumerate(via_regions.iteritems()):
         poly_verts = zip(region_dct['shape_attributes']['all_points_x'], region_dct['shape_attributes']['all_points_y'])
         poly_verts_list.append(poly_verts)
-    return poly_verts_list
+        if 'assigned_instance_id' in region_dct:
+            instance_list.append(region_dct['assigned_instance_id'])
+
+    if include_instance:
+        return poly_verts_list, instance_list
+    else:
+        return poly_verts_list
 
 
 def resize_polygons(poly_verts_list, x_shrink_factor=1.0, y_shrink_factor=1.0):
@@ -154,12 +161,13 @@ def visualize_masks(im, mask_list, img_out_path):
     plt.close('all')
 
 
-def visualize_polygons(im, poly_verts_list, img_out_path):
+def visualize_polygons(im, poly_verts_list, img_out_path, instances=None):
     """
 
     :param im:
     :param poly_verts_list:
     :param img_out_path:
+    :param instances:
     :return:
     """
     plt.clf()
@@ -175,12 +183,19 @@ def visualize_polygons(im, poly_verts_list, img_out_path):
     # Overlay
     plt.subplot(212)
     plt.axis('off')
-    colors = gen_n_colors(len(poly_verts_list))
+    if instances is None:
+        colors = gen_n_colors(len(poly_verts_list))
+    else:
+        colors = gen_n_colors(len(set(instances)))
     # Draw polygons on image
     imp = im.copy()
     draw = ImageDraw.Draw(imp, 'RGBA')
     for idx, poly in enumerate(poly_verts_list):
-        fill_col = (int(colors[idx][0]), int(colors[idx][1]), int(colors[idx][2]), 175)
+        if instances is None:
+            fill_col = (int(colors[idx][0]), int(colors[idx][1]), int(colors[idx][2]), 200)
+        else:
+            i_id = instances[idx]
+            fill_col = (int(colors[i_id][0]), int(colors[i_id][1]), int(colors[i_id][2]), 200)
         draw.polygon(poly_verts_list[idx], fill=fill_col, outline=(0, 0, 0, 255))
     del draw
     plt.imshow(imp)

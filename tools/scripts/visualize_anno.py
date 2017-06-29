@@ -62,7 +62,7 @@ def main():
         im = Image.open(img_path)
         w, h = im.size
 
-        polygons = via_regions_to_polygons(regions)
+        polygons, instances = via_regions_to_polygons(regions, include_instance=True)
 
         # ------------ Scale image and polygons to a smaller size to reduce computation
         scaled_im = resize_min_side(im, 760)
@@ -85,7 +85,7 @@ def main():
             os.mkdir(vis_out_dir)
 
         img_out_path = osp.join(vis_out_dir, this_filename)
-        visualize_polygons(im, polygons, img_out_path)
+        visualize_polygons(im, polygons, img_out_path, instances=instances)
 
 
 if __name__ == '__main__':
