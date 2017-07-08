@@ -16,7 +16,7 @@ import shutil
 import numpy as np
 import matplotlib.pyplot as plt
 
-from PIL import Image
+from PIL import Image, ImageDraw
 from scipy.misc import imread
 
 __author__ = "Tribhuvanesh Orekondy"
@@ -41,3 +41,34 @@ def resize_min_side(pil_img, mins_len):
         new_h = mins_len
         new_w = int(np.round(w * (new_h / float(h))))   # Scale height to same aspect ratio
     return pil_img.resize((new_w, new_h))
+
+
+def get_image_size(img_path):
+    """
+    Get image size as (width, height)
+    :param img_path:
+    :return: (width, height)
+    """
+    im = Image.open(img_path)
+    return im.size
+
+
+def draw_outline_on_img(pil_img, poly, color='yellow', width=4):
+    im = pil_img.copy()
+    draw = ImageDraw.Draw(im)
+    draw.line(poly, fill=color, width=4)
+    del draw
+    return im
+
+
+def blur_region(org_img, poly):
+    pass
+
+
+def fill_region(pil_img, poly, color='yellow'):
+    im = pil_img.copy()
+    draw = ImageDraw.Draw(im)
+    draw.polygon(poly, fill=color)
+    del draw
+
+    return im

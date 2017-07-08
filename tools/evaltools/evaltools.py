@@ -74,6 +74,12 @@ def get_mask(nx, ny, poly_verts_list, retain_instances=False, return_grid_list=F
 
 
 def via_regions_to_polygons(via_regions, include_instance=False):
+    """
+
+    :param via_regions:
+    :param include_instance:
+    :return: A list of polygons [ [(x1, y1), (x2, y2), ...], ]
+    """
     poly_verts_list = []
     instance_list = []
     for idx, (region_id, region_dct) in enumerate(via_regions.iteritems()):

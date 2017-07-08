@@ -43,6 +43,9 @@ def main():
     # print 'Input parameters: '
     # print json.dumps(params, indent=2)
 
+    print 'Using GT: ', params['gt_file']
+    print 'Using Pred: ', params['pred_file']
+
     img_filename_index = get_image_filename_index()
     gt_via = clean_via_annotations(params['gt_file'], img_fname_index=img_filename_index)
     pred_via = clean_via_annotations(params['pred_file'], img_fname_index=img_filename_index)
@@ -97,7 +100,7 @@ def main():
         if params['scale']:
             with Timer() as t:
                 # Scale image and polygons to a smaller size to reduce computation
-                scaled_im = resize_min_side(im, 760)
+                scaled_im = resize_min_side(im, 480)
                 scaled_w, scaled_h = scaled_im.size
 
                 x_shrink_factor = scaled_w/float(w)
@@ -134,7 +137,7 @@ def main():
                 vis_out_dir = params['visualize']
             if not osp.exists(vis_out_dir):
                 print 'Path {} does not exist. Creating it...'.format(vis_out_dir)
-                os.mkdir(vis_out_dir)
+                os.makedirs(vis_out_dir)
 
             if len(gt_regions) == 0 or len(pred_regions) == 0:
                 img_out_path = osp.join(vis_out_dir, this_filename)

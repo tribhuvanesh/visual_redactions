@@ -1,5 +1,5 @@
 #!/usr/bin/python
-"""Given a VIA annotation file, produce overlays to visualize annotations.
+"""Given an annotation file, provides size of polygon and time to annotate.
 
 Replace this with a more detailed description of what this file contains.
 """
@@ -19,12 +19,9 @@ import matplotlib.pyplot as plt
 from PIL import Image
 from scipy.misc import imread
 
-from privacy_filters.tools.common.utils import get_image_filename_index, clean_via_annotations
 from privacy_filters.tools.common.image_utils import resize_min_side
-from privacy_filters.tools.evaltools.evaltools import get_mask, via_regions_to_polygons, compute_eval_metrics, \
-    visualize_errors, resize_polygons, visualize_masks, visualize_polygons
-
-from privacy_filters.tools.common.timer import Timer
+from privacy_filters.tools.common.utils import get_image_filename_index, clean_via_annotations
+from privacy_filters.tools.evaltools.evaltools import via_regions_to_polygons, resize_polygons, get_mask
 
 __author__ = "Tribhuvanesh Orekondy"
 __maintainer__ = "Tribhuvanesh Orekondy"
@@ -77,15 +74,6 @@ def main():
         w, h, im = scaled_w, scaled_h, scaled_im
 
         mask_list = get_mask(w, h, polygons, return_grid_list=True)
-
-        # ------------ Produce visualizations
-        vis_out_dir = params['out_dir']
-        if not osp.exists(vis_out_dir):
-            print 'Path {} does not exist. Creating it...'.format(vis_out_dir)
-            os.mkdir(vis_out_dir)
-
-        img_out_path = osp.join(vis_out_dir, this_filename)
-        visualize_polygons(im, polygons, img_out_path, instances=instances)
 
 
 if __name__ == '__main__':

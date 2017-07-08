@@ -27,13 +27,13 @@ __maintainer__ = "Tribhuvanesh Orekondy"
 __email__ = "orekondy@mpi-inf.mpg.de"
 __status__ = "Development"
 
-N_SAMPL = 20
+N_SAMPL = 30
 
 
 def create_phase4_fold(fold_name):
     # --- Setup paths --------------------------------------------------------------------------------------------------
     # Where to place batched images
-    out_dir = osp.join(SEG_ROOT, 'phase3', 'images', fold_name)
+    out_dir = osp.join(SEG_ROOT, 'phase3', 'images_all', fold_name)
     # Annotation list
     mlc_anno_list_path = osp.join(DS_ROOT, fold_name + '.txt')
 
