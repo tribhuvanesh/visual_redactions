@@ -16,7 +16,7 @@ import shutil
 import numpy as np
 import matplotlib.pyplot as plt
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 from scipy.misc import imread
 
 __author__ = "Tribhuvanesh Orekondy"
@@ -61,8 +61,23 @@ def draw_outline_on_img(pil_img, poly, color='yellow', width=4):
     return im
 
 
-def blur_region(org_img, poly):
-    pass
+def blur_region(org_im, poly, radius=2):
+    im = org_im.copy()
+
+    # Blur the entire image
+    blurred_image = im.filter(ImageFilter.GaussianBlur(radius=radius))
+    blurred_im_array = np.asarray(blurred_image)
+
+    # Generate a mask for the polygon
+    im_array = np.asarray(im).copy()
+    mask_im = Image.new('L', (im_array.shape[1], im_array.shape[0]), 0)
+    ImageDraw.Draw(mask_im).polygon(poly, outline=1, fill=1)
+    mask = np.array(mask_im)
+
+    # Copy this region from the blurred image on to the original
+    im_array[mask.astype(bool)] = blurred_im_array[mask.astype(bool)]
+
+    return Image.fromarray(im_array)
 
 
 def fill_region(pil_img, poly, color='yellow'):
@@ -72,3 +87,37 @@ def fill_region(pil_img, poly, color='yellow'):
     del draw
 
     return im
+
+
+def crop_region(org_im, poly, return_cropped=True, return_grayscale=False, bkg_fill=255):
+    im = org_im.copy()
+
+    # Generate a mask for the polygon
+    im_array = np.asarray(im).copy()
+    mask_im = Image.new('L', (im_array.shape[1], im_array.shape[0]), 0)
+    ImageDraw.Draw(mask_im).polygon(poly, outline=1, fill=1)
+    mask = np.array(mask_im)
+
+    new_im_array = np.ones_like(im_array) * bkg_fill
+
+    # Copy this region from the blurred image on to the original
+    new_im_array[mask.astype(bool)] = im_array[mask.astype(bool)]
+
+    # Instance is most likely surrounded by whitespace. Crop such that this is removed
+    if return_cropped:
+        min_i = np.where(np.sum(mask, axis=1) > 0)[0][0]  # First non-zero element when summed column-wise
+        min_j = np.where(np.sum(mask, axis=0) > 0)[0][0]  # First non-zero element when summed row-wise
+        max_i = np.where(np.sum(mask, axis=1) > 0)[0][-1]  # Last non-zero element when summed column-wise
+        max_j = np.where(np.sum(mask, axis=0) > 0)[0][-1]  # Last non-zero element when summed row-wise
+
+        new_im_array = new_im_array[min_i:max_i, min_j:max_j]
+
+    if return_grayscale:
+        new_im_array = np.dot(new_im_array[..., :3], [0.299, 0.587, 0.114])
+
+    new_im = Image.fromarray(new_im_array)
+
+    if new_im.mode != 'RGB':
+        new_im = new_im.convert('RGB')
+
+    return new_im

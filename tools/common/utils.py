@@ -147,6 +147,4 @@ def clean_via_annotations(anno_path, img_fname_index=None, return_all=True):
                 this_instance_id = rand_ids.pop(0)
             region_dct['assigned_instance_id'] = this_instance_id
 
-    print via_cleaned_anno.keys()
-
     return via_cleaned_anno
