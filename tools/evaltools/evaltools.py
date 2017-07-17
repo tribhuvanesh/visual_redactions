@@ -83,7 +83,12 @@ def via_regions_to_polygons(via_regions, include_instance=False):
     poly_verts_list = []
     instance_list = []
     for idx, (region_id, region_dct) in enumerate(via_regions.iteritems()):
-        poly_verts = zip(region_dct['shape_attributes']['all_points_x'], region_dct['shape_attributes']['all_points_y'])
+        try:
+            poly_verts = zip(region_dct['shape_attributes']['all_points_x'], region_dct['shape_attributes']['all_points_y'])
+        except KeyError:
+            print "region_dct['shape_attributes'].keys() = ", region_dct['shape_attributes'].keys()
+            print region_dct['shape_attributes']
+            raise
         poly_verts_list.append(poly_verts)
         if 'assigned_instance_id' in region_dct:
             instance_list.append(region_dct['assigned_instance_id'])

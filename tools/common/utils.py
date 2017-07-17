@@ -117,15 +117,73 @@ def clean_via_annotations(anno_path, img_fname_index=None, return_all=True):
                 },
                 "region_attributes": {}
             }
-            full_region_dct["shape_attributes"]["all_points_x"] = [scan_margin, w-scan_margin, w-scan_margin, scan_margin,
+            full_region_dct["shape_attributes"]["all_points_x"] = [scan_margin, w - scan_margin, w - scan_margin,
+                                                                   scan_margin,
                                                                    scan_margin]
-            full_region_dct["shape_attributes"]["all_points_y"] = [scan_margin, scan_margin, h-scan_margin, h-scan_margin,
+            full_region_dct["shape_attributes"]["all_points_y"] = [scan_margin, scan_margin, h - scan_margin,
+                                                                   h - scan_margin,
                                                                    scan_margin]
             # Add this region to the list of existing regions
-            next_region_id = max(map(int, entry['regions'].keys())) + 1
+            if len(entry['regions'].keys()) > 0:
+                next_region_id = max(map(int, entry['regions'].keys())) + 1
+            else:
+                next_region_id = 0
             entry['regions'][str(next_region_id)] = full_region_dct
 
-        # TODO Convert Bounding boxes to polygon
+        shapes_in_anno = set([region_dct['shape_attributes']['name'] for k, region_dct in entry['regions'].iteritems()])
+
+        # This is of the format: {u'cy': 484, u'cx': 1078, u'r': 38, u'name': u'circle'}
+        if 'circle' in shapes_in_anno:
+            for k, region_dct in entry['regions'].iteritems():
+                if region_dct['shape_attributes']['name'] == 'circle':
+                    new_region_dct = {
+                        "shape_attributes": {
+                            "name": "polygon",
+                            "all_points_x": [],
+                            "all_points_y": [],
+                            "all_ts": []
+                        },
+                        "region_attributes": {}
+                    }
+                    _cx, _cy = region_dct['shape_attributes']['cx'], region_dct['shape_attributes']['cy']
+                    _r = region_dct['shape_attributes']['r']
+
+                    # No. of polygons to represent this circle
+                    n_circle_vertices = 16
+                    for i in range(n_circle_vertices):
+                        angle = (2.0 * np.pi / n_circle_vertices) * i
+                        _x = _cx + _r * np.cos(angle)
+                        _y = _cy + _r * np.sin(angle)
+                        new_region_dct['shape_attributes']['all_points_x'].append(_x)
+                        new_region_dct['shape_attributes']['all_points_y'].append(_y)
+                    # Close the loop
+                    new_region_dct['shape_attributes']['all_points_x'].append(
+                        new_region_dct['shape_attributes']['all_points_x'][0])
+                    new_region_dct['shape_attributes']['all_points_y'].append(
+                        new_region_dct['shape_attributes']['all_points_y'][0])
+
+                    entry['regions'][k] = new_region_dct
+
+        # This is of the format: {u'y': 273, u'x': 300, u'height': 13, u'name': u'rect', u'width': 77}
+        if 'rect' in shapes_in_anno:
+            for k, region_dct in entry['regions'].iteritems():
+                if region_dct['shape_attributes']['name'] == 'rect':
+                    new_region_dct = {
+                        "shape_attributes": {
+                            "name": "polygon",
+                            "all_points_x": [],
+                            "all_points_y": [],
+                            "all_ts": []
+                        },
+                        "region_attributes": {}
+                    }
+                    _x, _y = region_dct['shape_attributes']['x'], region_dct['shape_attributes']['y']
+                    _h, _w = region_dct['shape_attributes']['height'], region_dct['shape_attributes']['width']
+
+                    new_region_dct['shape_attributes']['all_points_x'] = [_x, _x+_w, _x+_w, _x, _x]
+                    new_region_dct['shape_attributes']['all_points_y'] = [_y, _y, _y+_h, _y+_h, _y]
+
+                    entry['regions'][k] = new_region_dct
 
         # Add an instance id to each region
         # Each region either: (a) contains an instance_id attribute OR (b) does not contain it
@@ -146,5 +204,13 @@ def clean_via_annotations(anno_path, img_fname_index=None, return_all=True):
             else:
                 this_instance_id = rand_ids.pop(0)
             region_dct['assigned_instance_id'] = this_instance_id
+
+    # Remove spurious polygons i.e., with just 2 points
+    for key, entry in via_cleaned_anno.iteritems():
+        for k, region_dct in entry['regions'].iteritems():
+            if region_dct['shape_attributes']['name'] == 'polygon':
+                if len(region_dct['shape_attributes']['all_points_x']) < 3:
+                    del via_cleaned_anno[key]['regions'][k]
+                    break
 
     return via_cleaned_anno

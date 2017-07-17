@@ -21,10 +21,11 @@ import shutil
 import numpy as np
 import matplotlib.pyplot as plt
 
-from PIL import Image
+from PIL import Image, ImageDraw, ImageOps
 from scipy.misc import imread
 
-from privacy_filters.tools.common.image_utils import draw_outline_on_img, fill_region, blur_region, crop_region
+from privacy_filters.tools.common.image_utils import draw_outline_on_img, fill_region, blur_region, crop_region, \
+    rgba_to_rgb
 from privacy_filters.tools.common.utils import get_image_filename_index, clean_via_annotations
 from privacy_filters.tools.evaltools.evaltools import via_regions_to_polygons
 
@@ -109,30 +110,45 @@ def main():
             for idx, poly in enumerate(this_polygon_list):
                 cropped_img = im.copy()
                 cropped_img = crop_region(cropped_img, poly, return_cropped=True, return_grayscale=True,
-                                             bkg_fill=255)
+                                          bkg_fill=255)
                 out_filename = '{}-{}-cropped-{}{}'.format(file_id, instance_idx, idx, file_ext)
                 out_path = osp.join(out_dir, out_filename)
                 cropped_img.save(out_path)
 
-            # E. Square central crop of the cropped region
+            # E, F. Square & Circular central crop of the cropped region
             for idx, poly in enumerate(this_polygon_list):
                 # Crop instance out of the image
                 sq_cropped_img = im.copy()
                 sq_cropped_img = crop_region(sq_cropped_img, poly, return_cropped=True, return_grayscale=True,
                                              bkg_fill=0)
                 inst_w, int_h = sq_cropped_img.size
+
                 # Take a square central crop
                 min_side_len = min(inst_w, int_h)
-                x1 = inst_w/2 - min_side_len/2
-                y1 = int_h/2 - min_side_len/2
-                x2 = inst_w/2 + min_side_len/2
-                y2 = int_h/2 + min_side_len/2
+                x1 = inst_w / 2 - min_side_len / 2
+                y1 = int_h / 2 - min_side_len / 2
+                x2 = inst_w / 2 + min_side_len / 2
+                y2 = int_h / 2 + min_side_len / 2
 
                 sq_cropped_img = sq_cropped_img.crop((x1, y1, x2, y2))
 
                 out_filename = '{}-{}-sq-cropped-{}{}'.format(file_id, instance_idx, idx, file_ext)
                 out_path = osp.join(out_dir, out_filename)
                 sq_cropped_img.save(out_path)
+
+                # Circular crop
+                size = sq_cropped_img.size
+                mask = Image.new('L', size, 0)
+                draw = ImageDraw.Draw(mask)
+                draw.ellipse((0, 0) + size, fill=255)
+                circ_cropped_img = ImageOps.fit(sq_cropped_img, mask.size, centering=(0.5, 0.5))
+                circ_cropped_img.putalpha(mask)
+                circ_cropped_img = rgba_to_rgb(circ_cropped_img)
+                del draw
+
+                out_filename = '{}-{}-circ-cropped-{}{}'.format(file_id, instance_idx, idx, file_ext)
+                out_path = osp.join(out_dir, out_filename)
+                circ_cropped_img.save(out_path)
 
 
 if __name__ == '__main__':

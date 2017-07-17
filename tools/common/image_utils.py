@@ -115,9 +115,35 @@ def crop_region(org_im, poly, return_cropped=True, return_grayscale=False, bkg_f
     if return_grayscale:
         new_im_array = np.dot(new_im_array[..., :3], [0.299, 0.587, 0.114])
 
-    new_im = Image.fromarray(new_im_array)
+    try:
+        new_im = Image.fromarray(new_im_array)
+    except ValueError:
+        print 'im_array.shape = ', im_array.shape
+        print 'poly = ', poly
+        print 'min_i, max_i, min_j, max_j = ', min_i, max_i, min_j, max_j
+        print 'new_im_array.shape = ', new_im_array.shape
+        raise
 
     if new_im.mode != 'RGB':
         new_im = new_im.convert('RGB')
 
     return new_im
+
+
+def rgba_to_rgb(image, color=(255, 255, 255)):
+    """Alpha composite an RGBA Image with a specified color.
+
+    Simpler, faster version than the solutions above.
+
+    Source: http://stackoverflow.com/a/9459208/284318
+    Source: http://www.javacms.tech/questions/56660/convert-rgba-png-to-rgb-with-pil
+
+    Keyword Arguments:
+    image -- PIL RGBA Image object
+    color -- Tuple r, g, b (default 255, 255, 255)
+
+    """
+    image.load()  # needed for split()
+    background = Image.new('RGB', image.size, color)
+    background.paste(image, mask=image.split()[3])  # 3 is the alpha channel
+    return background
