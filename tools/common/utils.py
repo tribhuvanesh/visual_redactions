@@ -37,6 +37,28 @@ IGNORE_IF_FILE_ATTR = {
 }
 
 
+def load_attributes():
+    """
+    Return mappings of:
+    a) attribute_id -> attribute_name
+    b) attribute_id (a string eg., a4_gender) -> attribute_idx (a number)
+    :return:
+    """
+    attributes_path = osp.join(DS_ROOT, 'attributes.tsv')
+    attr_id_to_name = dict()
+    attr_id_to_idx = dict()
+
+    with open(attributes_path, 'r') as fin:
+        ts = csv.DictReader(fin, delimiter='\t')
+        rows = filter(lambda r: r['idx'] is not '', [row for row in ts])
+
+        for row in rows:
+            attr_id_to_name[row['attribute_id']] = row['description']
+            attr_id_to_idx[row['attribute_id']] = row['idx']
+
+    return attr_id_to_name, attr_id_to_idx
+
+
 def get_image_filename_index():
     """
     Obtain a mapping of filename -> filepath for images
@@ -62,6 +84,7 @@ def clean_via_annotations(anno_path, img_fname_index=None, return_all=True):
     """
     Clean and add some additional info to via annotations.
     Example annotation: https://pastebin.com/cP3RCS3i
+    Example post-cleaned annotation file: https://pastebin.com/8ifs3RxM
     :param anno_path:
     :param img_fname_index:
     :param return_all: If true, returns all entries of the annotation file. Otherwise, drops certain entries based on
@@ -143,7 +166,7 @@ def clean_via_annotations(anno_path, img_fname_index=None, return_all=True):
                             "all_points_y": [],
                             "all_ts": []
                         },
-                        "region_attributes": {}
+                        "region_attributes": region_dct['region_attributes']
                     }
                     _cx, _cy = region_dct['shape_attributes']['cx'], region_dct['shape_attributes']['cy']
                     _r = region_dct['shape_attributes']['r']
@@ -175,7 +198,7 @@ def clean_via_annotations(anno_path, img_fname_index=None, return_all=True):
                             "all_points_y": [],
                             "all_ts": []
                         },
-                        "region_attributes": {}
+                        "region_attributes": region_dct['region_attributes']
                     }
                     _x, _y = region_dct['shape_attributes']['x'], region_dct['shape_attributes']['y']
                     _h, _w = region_dct['shape_attributes']['height'], region_dct['shape_attributes']['width']
@@ -212,5 +235,22 @@ def clean_via_annotations(anno_path, img_fname_index=None, return_all=True):
                 if len(region_dct['shape_attributes']['all_points_x']) < 3:
                     del via_cleaned_anno[key]['regions'][k]
                     break
+
+    # Remove file attributes with blank values
+    for key, entry in via_cleaned_anno.iteritems():
+        emtpy_k_list = []
+        for k, v in entry['file_attributes'].iteritems():
+            if v == '':
+                emtpy_k_list.append(k)
+        for k in emtpy_k_list:
+            del via_cleaned_anno[key]['file_attributes'][k]
+
+        # FIX: Annotator used '[6-10]' and '[10+]' as file labels. Replace them
+        if '[6-10]' in entry['file_attributes'].keys():
+            entry['file_attributes']['crowd_6-10'] = entry['file_attributes'].pop('[6-10]')
+        if '[10+]' in entry['file_attributes'].keys():
+            entry['file_attributes']['crowd_10+'] = entry['file_attributes'].pop('[10+]')
+        if '[Unsure]' in entry['file_attributes'].keys():
+            entry['file_attributes']['unsure'] = entry['file_attributes'].pop('[Unsure]')
 
     return via_cleaned_anno

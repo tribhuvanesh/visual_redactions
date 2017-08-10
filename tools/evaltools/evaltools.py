@@ -195,17 +195,21 @@ def visualize_polygons(im, poly_verts_list, img_out_path, instances=None):
     plt.subplot(212)
     plt.axis('off')
     if instances is None:
-        colors = gen_n_colors(len(poly_verts_list))
+        colors = gen_n_colors(len(poly_verts_list) + 1)
     else:
-        colors = gen_n_colors(len(set(instances)))
+        colors = gen_n_colors(len(set(instances)) + 1)
     # Draw polygons on image
     imp = im.copy()
+    if imp.mode not in ('RGB', 'RGBA'):
+        imp = imp.convert(mode='RGB')
     draw = ImageDraw.Draw(imp, 'RGBA')
     for idx, poly in enumerate(poly_verts_list):
         if instances is None:
             fill_col = (int(colors[idx][0]), int(colors[idx][1]), int(colors[idx][2]), 200)
         else:
             i_id = instances[idx]
+            # print 'i_id = ', i_id
+            # print 'len(colors) = ', len(colors)
             fill_col = (int(colors[i_id][0]), int(colors[i_id][1]), int(colors[i_id][2]), 200)
         draw.polygon(poly_verts_list[idx], fill=fill_col, outline=(0, 0, 0, 255))
     del draw
