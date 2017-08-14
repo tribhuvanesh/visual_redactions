@@ -68,10 +68,7 @@ def get_phase2_stats(fold_name, csv_out_path):
     for batch_fname in sorted(batch_anno_filenames, key=lambda x: int(osp.splitext(x)[0])):
         # Iterate over each batch
         batch_filepath = osp.join(anno_batch_dir, batch_fname)
-        try:
-            via_list = clean_via_annotations(batch_filepath, img_fname_index=img_filename_index, return_all=True)
-        except ValueError:
-            continue
+        via_list = clean_via_annotations(batch_filepath, img_fname_index=img_filename_index, return_all=True)
         via_fname_set = set([e['filename'] for k, e in via_list.iteritems()])
 
         for file_id, entry in via_list.iteritems():

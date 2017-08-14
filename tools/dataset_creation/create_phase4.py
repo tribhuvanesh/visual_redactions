@@ -136,8 +136,7 @@ def create_phase4_fold(fold_name):
 
 
 def main():
-    # for fold in ['val2017', 'train2017', 'test2017']:
-    for fold in ['test2017']:
+    for fold in ['val2017', 'train2017', 'test2017']:
         print '** Processing ', fold
         create_phase4_fold(fold)
 
