@@ -34,6 +34,7 @@ import os
 import os.path as osp
 import shutil
 import re
+import datetime
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -64,6 +65,8 @@ def collate(fold_name, snapshot_name):
     img_filename_index = get_image_filename_index()
     # Out directory
     final_out_dir = osp.join(SEG_ROOT, 'annotations', snapshot_name)
+    final_out_path = osp.join(final_out_dir, '{}.json'.format(fold_name))
+    assert not osp.exists(final_out_path), 'Output path {} exists. Delete it and try again.'.format(final_out_path)
 
     # --- Get Person Annotations ---------------------------------------------------------------------------------------
     # Create a mapping of file_id -> ImageAnnotation
@@ -184,16 +187,22 @@ def collate(fold_name, snapshot_name):
                 file_id_to_img_anno[file_id] = this_img_anno
 
     # --- Write Annotations --------------------------------------------------------------------------------------------
+    # TODO Also write some stats (#images, #images per attribute, etc.)
+    anno_to_write = {'annotations': file_id_to_img_anno, 'created_at': str(datetime.datetime.now())}
     if not osp.exists(final_out_dir):
         print '{} does not exist. Creating it...'.format(final_out_dir)
         os.makedirs(final_out_dir)
-    final_out_path = osp.join(final_out_dir, '{}.json'.format(fold_name))
     with open(final_out_path, 'wb') as wjf:
-        json.dump(file_id_to_img_anno, wjf, indent=2, cls=AnnoEncoder)
+        json.dump(anno_to_write, wjf, indent=2, cls=AnnoEncoder)
 
 
 def main():
-    collate('val2017', 'dummy')
+    parser = argparse.ArgumentParser()
+    parser.add_argument("fold", type=str, help="fold name", choices=['val2017', 'train2017', 'test2017'])
+    parser.add_argument("snapshot_name", type=str, help="Place annotations in this snapshot directory")
+    args = parser.parse_args()
+
+    collate(args.fold, args.snapshot_name)
 
 
 if __name__ == '__main__':
