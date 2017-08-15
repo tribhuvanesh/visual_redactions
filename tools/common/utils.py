@@ -83,7 +83,7 @@ def get_image_filename_index():
 def clean_via_annotations(anno_path, img_fname_index=None, return_all=True):
     """
     Clean and add some additional info to via annotations.
-    Example annotation: https://pastebin.com/cP3RCS3i
+    Example pre-cleaned annotation: https://pastebin.com/cP3RCS3i
     Example post-cleaned annotation file: https://pastebin.com/8ifs3RxM
     :param anno_path:
     :param img_fname_index:
@@ -235,6 +235,18 @@ def clean_via_annotations(anno_path, img_fname_index=None, return_all=True):
                 if len(region_dct['shape_attributes']['all_points_x']) < 3:
                     del via_cleaned_anno[key]['regions'][k]
                     break
+
+    # Sometimes VIA uses negative values for points close to the border. Replace them with 0s
+    for key, entry in via_cleaned_anno.iteritems():
+        for k, region_dct in entry['regions'].iteritems():
+            if region_dct['shape_attributes']['name'] == 'polygon':
+                all_x = region_dct['shape_attributes']['all_points_x']
+                all_y = region_dct['shape_attributes']['all_points_y']
+                if any([z < 0. for z in all_x + all_y]):
+                    all_pos_x = [max(0., x) for x in all_x]
+                    all_pos_y = [max(0., y) for y in all_y]
+                    region_dct['shape_attributes']['all_points_x'] = all_pos_x
+                    region_dct['shape_attributes']['all_points_y'] = all_pos_y
 
     # Remove file attributes with blank values
     for key, entry in via_cleaned_anno.iteritems():
