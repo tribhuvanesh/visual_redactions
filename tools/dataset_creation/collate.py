@@ -137,7 +137,7 @@ def collate(fold_name, snapshot_name):
             print 'Processing attribute "{}" (# Batches = {})... '.format(attr_id, len(batch_anno_filenames))
         for batch_idx, batch_fname in enumerate(sorted(batch_anno_filenames, key=lambda x: int(osp.splitext(x)[0]))):
             # Iterate over each batch
-            batch_filepath = osp.join(phase2_batch_dir, batch_fname)
+            batch_filepath = osp.join(phase4_batch_dir, attr_id, batch_fname)
             via_list = clean_via_annotations(batch_filepath, img_fname_index=img_filename_index, return_all=True)
 
             for file_id, entry in via_list.iteritems():
