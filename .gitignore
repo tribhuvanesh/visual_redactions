@@ -104,3 +104,6 @@ ENV/
 .idea/
 cache/
 *.pyc
+
+# Keys
+tools/common/secret.py
