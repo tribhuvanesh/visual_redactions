@@ -35,6 +35,8 @@ IGNORE_IF_FILE_ATTR = {
     'crowd_6-10',
     'crowd_10+'
 }
+# Override above if file contains regions
+override_if_regions_exist = True
 
 
 def load_attributes():
@@ -106,8 +108,18 @@ def clean_via_annotations(anno_path, img_fname_index=None, return_all=True):
 
         this_file_level_attr = set(entry['file_attributes'].keys())
         if len(this_file_level_attr & IGNORE_IF_FILE_ATTR) > 0:
+            ignore_file = True
             # This annotation entry contains one of the ignore attributes
-            if not return_all:
+            n_regions = 0
+            if override_if_regions_exist:
+                n_regions += len(entry['regions'])
+                if 'full_scan' in entry['file_attributes']:
+                    n_regions += 1
+                if n_regions > 0:
+                    ignore_file = False
+            if not ignore_file:
+                pass
+            elif not return_all:
                 # Simply ignore this entry
                 continue
 
@@ -213,7 +225,7 @@ def clean_via_annotations(anno_path, img_fname_index=None, return_all=True):
         # In case of (b), we need to assign it a random id
 
         # Generate some random IDs
-        rand_ids = range(100)
+        rand_ids = range(500)
         # Mapping to tag instance "p_N" to an instance id
         tag_to_instance_id = dict()
         for k, region_dct in entry['regions'].iteritems():

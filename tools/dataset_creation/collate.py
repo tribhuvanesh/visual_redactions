@@ -17,12 +17,13 @@ Format of file:
             {
                 'id':           4,
                 'attr_id':      'a105_face_all',
-                'segmentation': [[], ],          # polygon [[x1 y1 x2 y2, ...], [x1 y1 x2 y2, ...], ]
+                'polygons': [[], ],          # polygon [[x1 y1 x2 y2, ...], [x1 y1 x2 y2, ...], ]
                 'area':         float,               #
                 'bbox':         [x, y, width, height],
                 'iscrowd' :     0 or 1,
             }
         ]
+    }
 """
 import json
 import time
@@ -35,6 +36,7 @@ import os.path as osp
 import shutil
 import re
 import datetime
+from collections import defaultdict as dd
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -53,6 +55,32 @@ __email__ = "orekondy@mpi-inf.mpg.de"
 __status__ = "Development"
 
 PERSON_ATTR_ID = 'a109_person_body'
+
+
+def anno_stats(file_id_to_img_anno):
+    """
+    Computes some statistics over image annotations
+    :param file_id_to_img_anno:
+    :return:
+    """
+    stats_dct = dict()
+    # 1. Number of images
+    stats_dct['n_images'] = len(file_id_to_img_anno)
+    # 2. attr -> #images
+    # 3. attr -> #instances
+    attr_id_to_n_img = dd(int)
+    attr_id_to_n_inst = dd(int)
+    for file_id, anno_entry in file_id_to_img_anno.iteritems():
+        for attr_entry in anno_entry.attributes:
+            attr_id_to_n_inst[attr_entry.attr_id] += 1
+        file_attr = set([attr_entry.attr_id for attr_entry in anno_entry.attributes])
+        for attr_id in file_attr:
+            attr_id_to_n_img[attr_id] += 1
+    stats_dct['attr_id_to_n_img'] = attr_id_to_n_img
+    stats_dct['attr_id_to_n_inst'] = attr_id_to_n_inst
+    stats_dct['n_attr'] = len(attr_id_to_n_inst)
+    stats_dct['present_attr'] = sorted(attr_id_to_n_inst.keys())
+    return stats_dct
 
 
 def collate(fold_name, snapshot_name):
@@ -147,7 +175,8 @@ def collate(fold_name, snapshot_name):
 
                 # Skip this image if: a) contains an unsure tag c) does not contain regions
                 skip_image = False
-                skip_file_attr = {'crowd_6-10', 'crowd_10+', 'unsure'}
+                # skip_file_attr = {'crowd_6-10', 'crowd_10+', 'unsure'}
+                skip_file_attr = {'unsure', }
                 if len(set(file_attr_dct.keys()) & skip_file_attr) > 0:
                     skip_image = True
 
@@ -187,8 +216,8 @@ def collate(fold_name, snapshot_name):
                 file_id_to_img_anno[file_id] = this_img_anno
 
     # --- Write Annotations --------------------------------------------------------------------------------------------
-    # TODO Also write some stats (#images, #images per attribute, etc.)
-    anno_to_write = {'annotations': file_id_to_img_anno, 'created_at': str(datetime.datetime.now())}
+    anno_to_write = {'annotations': file_id_to_img_anno, 'created_at': str(datetime.datetime.now()),
+                     'stats': anno_stats(file_id_to_img_anno)}
     if not osp.exists(final_out_dir):
         print '{} does not exist. Creating it...'.format(final_out_dir)
         os.makedirs(final_out_dir)
