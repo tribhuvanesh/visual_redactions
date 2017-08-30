@@ -14,19 +14,19 @@ Format of GT file:
     'stats':   { ..... },
     'annotations': {
      #--------- One per image ---------
-     '2017_235123.jpg' :   {
-            'image_id': '2017_235123.jpg',
-            'image_path': '/home/orekondy/work2/datasets/VISPR2017/images/val2017/2017_18072751.jpg'
+     '2017_235123' :   {
+            'image_id': '2017_235123',
+            'image_path': 'images/val2017/2017_18072751.jpg'
             'image_height': 1024,
             'image_width' : 2048,
-            attributes: [     #--------- One per instance ---------
+            'attributes': [     #--------- One per instance ---------
                 {
                     'id':           4,
                     'attr_id':      'a105_face_all',
                     'polygons': [[], ],          # polygon [[x1 y1 x2 y2, ...], [x1 y1 x2 y2, ...], ]
-                    'area':         float,               #
-                    'bbox':         [x, y, width, height],
-                    'iscrowd' :     0 or 1,
+                    'area':         [float, ...],     # One per region (instance can exist as multiple regions)
+                    'bbox':         [[x, y, width, height], ...]   # One per region
+                    'segmentation': {...}  # polygons encoded as RLE (see MS-COCO format)
                 }
             ]
         }

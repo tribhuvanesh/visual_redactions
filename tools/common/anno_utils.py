@@ -57,8 +57,11 @@ class ImageAnnotation:
         Infer additional image-level attributes
         :return:
         """
+        # Finalize attributes
         for attr in self.attributes:
             attr.finalize(self.image_height, self.image_width)
+        # Clean-up image path (make this relative to DS_ROOT)
+        self.image_path = self.image_path[self.image_path.index('images'):]
 
 
 class AttributeAnnotation:
@@ -71,11 +74,9 @@ class AttributeAnnotation:
         self.polygons = []
         for poly in polygons:
             self.add_polygon(poly)
-        # TODO
-        self.area = None
-        self.is_crowd = is_crowd
-        self.segmentation = None
-        self.bbox = []  # Stored as [x y w h]
+        self.area = []            # One number per region
+        self.segmentation = None  # COCO RLE
+        self.bbox = []            # Stored as [ [x y w h], ... ]
 
     def set_instance_id(self, new_instance_id):
         self.instance_id = new_instance_id
@@ -107,6 +108,6 @@ class AnnoEncoder(json.JSONEncoder):
             return obj.__dict__
         elif isinstance(obj, ImageAnnotation):
             dct = obj.__dict__
-            del(dct['next_instance_id'])
+            del(dct['next_instance_id'])   # Because this is unnecessary now
             return dct
         return json.JSONEncoder.default(self, obj)

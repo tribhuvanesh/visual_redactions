@@ -8,6 +8,10 @@ Get the following annotations using the Cloud Vision API:
 - LANDMARK_DETECTION
 - FACE_DETECTION
 - SAFE_SEARCH_DETECTION
+
+Additionally, this API only supports images <4mb. However, many of VISPR images exceed this limit.
+So, this script surrogates images with downscaled ones when possible. It additionally extrapolates locations
+to match original size.
 """
 import json
 import time
@@ -43,9 +47,9 @@ DETECTION_TYPES = [
     'TEXT_DETECTION',
     'DOCUMENT_TEXT_DETECTION',
     'LABEL_DETECTION',
-    # 'LANDMARK_DETECTION',
+    'LANDMARK_DETECTION',
     'SAFE_SEARCH_DETECTION',
-    # 'FACE_DETECTION'
+    'FACE_DETECTION'
 ]
 
 GOOGLE_VPI_URL = 'https://vision.googleapis.com/v1/images:annotate?key={}'.format(GOOGLE_API_KEY)
@@ -102,15 +106,21 @@ def fix_sizes(vdct, org_im_size, cur_im_size):
 
     if 'textAnnotations' in vdct:
         vdct['textAnnotations_prev'] = deepcopy(vdct['textAnnotations'])
-        vdct['textAnnotations'] = fix_text_entity_anno(vdct['textAnnotations'], w_scale, h_scale)
+        vdct['textAnnotations'] = fix_entity_anno(vdct['textAnnotations'], w_scale, h_scale)
     if 'fullTextAnnotation' in vdct:
         vdct['fullTextAnnotation_prev'] = deepcopy(vdct['fullTextAnnotation'])
         vdct['fullTextAnnotation'] = fix_full_text_anno(vdct['fullTextAnnotation'], w_scale, h_scale)
+    if 'landmarkAnnotations' in vdct:
+        vdct['landmarkAnnotations_prev'] = deepcopy(vdct['landmarkAnnotations'])
+        vdct['landmarkAnnotations'] = fix_entity_anno(vdct['landmarkAnnotations'], w_scale, h_scale)
+    if 'faceAnnotations' in vdct:
+        vdct['faceAnnotations_prev'] = deepcopy(vdct['faceAnnotations'])
+        vdct['faceAnnotations'] = fix_face_entity_anno(vdct['faceAnnotations'], w_scale, h_scale)
 
     return vdct
 
 
-def fix_entity_anno(entry, w_scale, h_scale):
+def fix_entity_anno_entry(entry, w_scale, h_scale):
     """
     Fix EntityAnnotation
     https://cloud.google.com/vision/docs/reference/rest/v1/images/annotate?authuser=1#EntityAnnotation
@@ -122,33 +132,85 @@ def fix_entity_anno(entry, w_scale, h_scale):
     if 'boundingPoly' in entry:
         if 'vertices' in entry['boundingPoly']:
                 for vrt in entry['boundingPoly']['vertices']:
-                    vrt['x'] = int(np.round(vrt['x'] * w_scale))
-                    vrt['y'] = int(np.round(vrt['y'] * h_scale))
+                    if 'x' in vrt:
+                        vrt['x'] = int(np.round(vrt['x'] * w_scale))
+                    else:
+                        print 'Warning: x missing in boundingPoly'
+                    if 'y' in vrt:
+                        vrt['y'] = int(np.round(vrt['y'] * h_scale))
+                    else:
+                        print 'Warning: y missing in boundingPoly'
     return entry
 
 
-def fix_text_entity_anno(text_anno_list, w_scale, h_scale):
+def fix_face_entity_anno_entry(entry, w_scale, h_scale):
     """
-    The text annotation object is simply a list of entities.
-    Fix Text Annotations (not Full Text!). Return a new fixed annotation object.
-    :type text_anno_list: list
-    :param text_anno_list:
+    Fix EntityAnnotation
+    https://cloud.google.com/vision/docs/reference/rest/v1/images/annotate?authuser=1#EntityAnnotation
+    :param anno:
     :param w_scale:
     :param h_scale:
     :return:
     """
-    new_text_anno_list = []
-    for idx in range(len(text_anno_list)):
-        this_entry = deepcopy(text_anno_list[idx])
-        this_entry = fix_entity_anno(this_entry, w_scale, h_scale)
-        new_text_anno_list.append(this_entry)
-    return new_text_anno_list
+    if 'boundingPoly' in entry:
+        entry['boundingPoly'] = fix_bounding_poly(entry['boundingPoly'], w_scale, h_scale)
+    if 'fdBoundingPoly' in entry:
+        entry['fdBoundingPoly'] = fix_bounding_poly(entry['fdBoundingPoly'], w_scale, h_scale)
+    if 'landmarks' in entry:
+        for landmark_entry in entry['landmarks']:
+            if 'x' in landmark_entry['position']:
+                landmark_entry['position']['x'] = landmark_entry['position']['x'] * float(w_scale)
+            if 'y' in landmark_entry['position']:
+                landmark_entry['position']['y'] = landmark_entry['position']['y'] * float(h_scale)
+    return entry
+
+
+def fix_entity_anno(anno_list, w_scale, h_scale):
+    """
+    The text/landmark annotation object is simply a list of entities.
+    Fix Text Annotations (not Full Text!). Return a new fixed annotation object.
+    :type anno_list: list
+    :param anno_list:
+    :param w_scale:
+    :param h_scale:
+    :return:
+    """
+    new_anno_list = []
+    for idx in range(len(anno_list)):
+        this_entry = deepcopy(anno_list[idx])
+        this_entry = fix_entity_anno_entry(this_entry, w_scale, h_scale)
+        new_anno_list.append(this_entry)
+    return new_anno_list
+
+
+def fix_face_entity_anno(anno_list, w_scale, h_scale):
+    """
+    The Face annotation object is simply a list of entities.
+    https://cloud.google.com/vision/docs/reference/rest/v1/images/annotate#FaceAnnotation
+    :type anno_list: list
+    :param anno_list:
+    :param w_scale:
+    :param h_scale:
+    :return:
+    """
+    new_anno_list = []
+    for idx in range(len(anno_list)):
+        this_entry = deepcopy(anno_list[idx])
+        this_entry = fix_face_entity_anno_entry(this_entry, w_scale, h_scale)
+        new_anno_list.append(this_entry)
+    return new_anno_list
 
 
 def fix_bounding_poly(bounding_poly, w_scale, h_scale):
     for vrt in bounding_poly['vertices']:
-        vrt['x'] = int(np.round(vrt['x'] * w_scale))
-        vrt['y'] = int(np.round(vrt['y'] * h_scale))
+        if 'x' in vrt:
+            vrt['x'] = int(np.round(vrt['x'] * w_scale))
+        else:
+            print 'Warning: x missing in boundingPoly'
+        if 'y' in vrt:
+            vrt['y'] = int(np.round(vrt['y'] * h_scale))
+        else:
+            print 'Warning: y missing in boundingPoly'
     return bounding_poly
 
 
@@ -157,7 +219,7 @@ def fix_full_text_anno(_entry, w_scale, h_scale):
     Fix TextAnnotation:
     https://cloud.google.com/vision/docs/reference/rest/v1/images/annotate?authuser=1#TextAnnotation
     Returns a new modified copy.
-    :param anno:
+    :param _entry:
     :param w_scale:
     :param h_scale:
     :return:
@@ -242,11 +304,6 @@ def main():
             'anno_path': anno_path,
         }
 
-        # DEBUG: Write before fixing
-        # print out_path
-        # with open(out_path, 'wb') as wf:
-        #     json.dump(vision_response_dct, wf, indent=2)
-
         if org_img_path != image_path:
             vision_response_dct = fix_sizes(vision_response_dct, (org_w, org_h), (new_w, new_h))
 
@@ -255,9 +312,6 @@ def main():
             json.dump(vision_response_dct, wf, indent=2)
 
         n_processed += 1
-
-        if idx > 100:
-            break
 
     print '# Processed: ', n_processed
     print '# Skipped: ', n_skipped
