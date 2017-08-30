@@ -7,23 +7,31 @@ Obtain individual annotations from:
 and collate them and store these annotations in SEG_ROOT/annotations.
 
 (Similar to Object Instance Annotations in MS-COCO: http://mscoco.org/dataset/#download)
-Format of file:
-    {
-        'image_id': '2017_235123.jpg',
-        'image_path': 'images/train2017/2017_235123.jpg'
-        'image_height': 1024,
-        'image_width' : 2048,
-        attributes: [
-            {
-                'id':           4,
-                'attr_id':      'a105_face_all',
-                'polygons': [[], ],          # polygon [[x1 y1 x2 y2, ...], [x1 y1 x2 y2, ...], ]
-                'area':         float,               #
-                'bbox':         [x, y, width, height],
-                'iscrowd' :     0 or 1,
-            }
-        ]
+Format of GT file:
+{
+    #--------- One per anno file ---------
+    'created_at: '2017-08-29 15:25:11.001926',
+    'stats':   { ..... },
+    'annotations': {
+     #--------- One per image ---------
+     '2017_235123.jpg' :   {
+            'image_id': '2017_235123.jpg',
+            'image_path': '/home/orekondy/work2/datasets/VISPR2017/images/val2017/2017_18072751.jpg'
+            'image_height': 1024,
+            'image_width' : 2048,
+            attributes: [     #--------- One per instance ---------
+                {
+                    'id':           4,
+                    'attr_id':      'a105_face_all',
+                    'polygons': [[], ],          # polygon [[x1 y1 x2 y2, ...], [x1 y1 x2 y2, ...], ]
+                    'area':         float,               #
+                    'bbox':         [x, y, width, height],
+                    'iscrowd' :     0 or 1,
+                }
+            ]
+        }
     }
+}
 """
 import json
 import time
@@ -97,7 +105,7 @@ def collate(fold_name, snapshot_name):
     assert not osp.exists(final_out_path), 'Output path {} exists. Delete it and try again.'.format(final_out_path)
 
     # --- Get Person Annotations ---------------------------------------------------------------------------------------
-    # Create a mapping of file_id -> ImageAnnotation
+    # Create a mapping of file_name -> ImageAnnotation
     file_id_to_img_anno = dict()
     n_written = 0
     n_skipped = 0
@@ -109,10 +117,11 @@ def collate(fold_name, snapshot_name):
         batch_filepath = osp.join(phase2_batch_dir, batch_fname)
         via_list = clean_via_annotations(batch_filepath, img_fname_index=img_filename_index, return_all=True)
 
-        for file_id, entry in via_list.iteritems():
+        for file_name, entry in via_list.iteritems():
             img_path = entry['filepath']
             w, h = get_image_size(img_path)
             file_attr_dct = entry['file_attributes']
+            file_id, ext = osp.splitext(file_name)
 
             # Skip this image if: a) it contains crowd attributes b) contains an unsure tag c) does not contain regions
             skip_image = False
@@ -142,7 +151,7 @@ def collate(fold_name, snapshot_name):
                     try:
                         this_attr_anno = AttributeAnnotation(assigned_instance_id, PERSON_ATTR_ID, [polygon, ])
                     except AssertionError:
-                        print file_id, batch_filepath
+                        print file_name, batch_filepath
                         raise
                     ainst_id_to_attr_anno[assigned_instance_id] = this_attr_anno
 
@@ -150,7 +159,7 @@ def collate(fold_name, snapshot_name):
             this_img_anno = ImageAnnotation(file_id, img_path, h, w)
             for attr_anno in ainst_id_to_attr_anno.values():
                 this_img_anno.add_attribute_annotation(attr_anno)
-            assert file_id not in file_id_to_img_anno
+            assert file_name not in file_id_to_img_anno
             file_id_to_img_anno[file_id] = this_img_anno
 
     # --- Get Annotations for other Attributes -------------------------------------------------------------------------
@@ -168,10 +177,11 @@ def collate(fold_name, snapshot_name):
             batch_filepath = osp.join(phase4_batch_dir, attr_id, batch_fname)
             via_list = clean_via_annotations(batch_filepath, img_fname_index=img_filename_index, return_all=True)
 
-            for file_id, entry in via_list.iteritems():
+            for file_name, entry in via_list.iteritems():
                 img_path = entry['filepath']
                 w, h = get_image_size(img_path)
                 file_attr_dct = entry['file_attributes']
+                file_id, ext = osp.splitext(file_name)
 
                 # Skip this image if: a) contains an unsure tag c) does not contain regions
                 skip_image = False
@@ -202,7 +212,7 @@ def collate(fold_name, snapshot_name):
                         try:
                             this_attr_anno = AttributeAnnotation(assigned_instance_id, attr_id, [polygon, ])
                         except AssertionError:
-                            print file_id, batch_filepath
+                            print file_name, batch_filepath
                             raise
                         ainst_id_to_attr_anno[assigned_instance_id] = this_attr_anno
 
@@ -214,6 +224,11 @@ def collate(fold_name, snapshot_name):
                 for attr_anno in ainst_id_to_attr_anno.values():
                     this_img_anno.add_attribute_annotation(attr_anno)
                 file_id_to_img_anno[file_id] = this_img_anno
+
+    # --- Complete other instance statistics (eg., rle, area) ----------------------------------------------------------
+    print 'Inferring instance statistics...'
+    for img_anno in file_id_to_img_anno.values():
+        img_anno.finalize()
 
     # --- Write Annotations --------------------------------------------------------------------------------------------
     anno_to_write = {'annotations': file_id_to_img_anno, 'created_at': str(datetime.datetime.now()),

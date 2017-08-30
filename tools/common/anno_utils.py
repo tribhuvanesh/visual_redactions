@@ -19,6 +19,8 @@ import matplotlib.pyplot as plt
 from PIL import Image
 from scipy.misc import imread
 
+import pycocotools.mask as mask
+
 __author__ = "Tribhuvanesh Orekondy"
 __maintainer__ = "Tribhuvanesh Orekondy"
 __email__ = "orekondy@mpi-inf.mpg.de"
@@ -50,8 +52,19 @@ class ImageAnnotation:
         self.next_instance_id += 1
         self.attributes.append(attr_anno)
 
+    def finalize(self):
+        """
+        Infer additional image-level attributes
+        :return:
+        """
+        for attr in self.attributes:
+            attr.finalize(self.image_height, self.image_width)
+
 
 class AttributeAnnotation:
+    """
+    Represents annotation of a single unique instance of attribute attr_id
+    """
     def __init__(self, instance_id, attr_id, polygons, is_crowd=False):
         self.instance_id = instance_id
         self.attr_id = attr_id
@@ -59,9 +72,10 @@ class AttributeAnnotation:
         for poly in polygons:
             self.add_polygon(poly)
         # TODO
-        self.area = 0.0
+        self.area = None
         self.is_crowd = is_crowd
-        self.bbox = []
+        self.segmentation = None
+        self.bbox = []  # Stored as [x y w h]
 
     def set_instance_id(self, new_instance_id):
         self.instance_id = new_instance_id
@@ -74,6 +88,17 @@ class AttributeAnnotation:
         assert polygon[0] == polygon[-2]  # x1 == xn
         assert polygon[1] == polygon[-1]  # y1 == yn
         self.polygons.append(polygon)
+
+    def finalize(self, image_height, image_width):
+        """
+        Infer additional details per attribute (eg., area of instance, RLE encoding of polygon, etc.)
+        :return:
+        """
+        rles = mask.frPyObjects(self.polygons, image_height, image_width)
+        rle = mask.merge(rles)
+        self.segmentation = rle
+        self.area = mask.area(rles).tolist()
+        self.bbox = mask.toBbox(rles).tolist()
 
 
 class AnnoEncoder(json.JSONEncoder):

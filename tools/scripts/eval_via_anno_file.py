@@ -21,7 +21,7 @@ from scipy.misc import imread
 
 from privacy_filters.tools.common.utils import get_image_filename_index, clean_via_annotations
 from privacy_filters.tools.common.image_utils import resize_min_side
-from privacy_filters.tools.evaltools.evaltools import  get_mask, via_regions_to_polygons, compute_eval_metrics, visualize_errors, resize_polygons
+from privacy_filters.tools.evaltools.evaltools import get_mask, via_regions_to_polygons, compute_eval_metrics, visualize_errors, resize_polygon
 
 from privacy_filters.tools.common. timer import Timer
 
