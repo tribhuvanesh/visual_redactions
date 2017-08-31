@@ -77,6 +77,7 @@ class AttributeAnnotation:
         self.area = []            # One number per region
         self.segmentation = None  # COCO RLE
         self.bbox = []            # Stored as [ [x y w h], ... ]
+        self.iscrowd = False
 
     def set_instance_id(self, new_instance_id):
         self.instance_id = new_instance_id

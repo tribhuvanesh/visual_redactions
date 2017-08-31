@@ -7,3 +7,4 @@ import os
 
 DS_ROOT = '/home/orekondy/work2/datasets/VISPR2017'
 SEG_ROOT = '/home/orekondy/work2/datasets/VISPR2017-seg'
+CAFFE_ROOT = '/BS/orekondy/work/opt/caffe-new'

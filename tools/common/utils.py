@@ -39,14 +39,17 @@ IGNORE_IF_FILE_ATTR = {
 override_if_regions_exist = True
 
 
-def load_attributes():
+def load_attributes(v1_attributes=False):
     """
     Return mappings of:
     a) attribute_id -> attribute_name
     b) attribute_id (a string eg., a4_gender) -> attribute_idx (a number)
     :return:
     """
-    attributes_path = osp.join(DS_ROOT, 'attributes.tsv')
+    if v1_attributes:
+        attributes_path = osp.join(DS_ROOT, 'attributes.tsv')
+    else:
+        attributes_path = osp.join(SEG_ROOT, 'attributes.tsv')
     attr_id_to_name = dict()
     attr_id_to_idx = dict()
 
@@ -56,9 +59,17 @@ def load_attributes():
 
         for row in rows:
             attr_id_to_name[row['attribute_id']] = row['description']
-            attr_id_to_idx[row['attribute_id']] = row['idx']
+            attr_id_to_idx[row['attribute_id']] = int(row['idx'])
 
     return attr_id_to_name, attr_id_to_idx
+
+
+def labels_to_vec(labels, attr_id_to_idx):
+    n_labels = len(attr_id_to_idx)
+    label_vec = np.zeros(n_labels)
+    for attr_id in labels:
+        label_vec[attr_id_to_idx[attr_id]] = 1
+    return label_vec
 
 
 def get_image_filename_index():
