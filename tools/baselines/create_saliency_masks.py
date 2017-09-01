@@ -111,16 +111,18 @@ def main():
 
         output = net.forward()
         prob = output['fc1_prob']
+        # print prob.shape
 
         for idx, f_idx in enumerate(range(start_idx, end_idx)):
             image_path = image_path_list[f_idx]
             _, image_name = osp.split(image_path)
-            image_id = osp.splitext(image_name)
-            sal_mask = prob[idx]
-            image_id_to_saliency[image_id] = sal_mask
+            image_id, _ = osp.splitext(image_name)
+            sal_mask = prob[idx][1]
+            assert image_id not in image_id_to_saliency
+            image_id_to_saliency[image_id] = sal_mask.copy()
 
     # Save Saliency Masks ----------------------------------------------------------------------------------------------
-    pickle.dump(image_id_to_saliency, open(params['outfile'], "wb"))
+    pickle.dump(image_id_to_saliency, open(params['outfile'], 'w'))
 
 
 if __name__ == '__main__':
