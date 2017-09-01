@@ -10,7 +10,7 @@ ICCV 2017
 """
 import json
 import time
-import pickle
+import cPickle as pickle
 import sys
 import csv
 import argparse
@@ -20,6 +20,7 @@ import shutil
 
 import numpy as np
 import matplotlib.pyplot as plt
+import scipy.misc
 
 from PIL import Image
 from scipy.misc import imread
@@ -48,23 +49,35 @@ __maintainer__ = "Tribhuvanesh Orekondy"
 __email__ = "orekondy@mpi-inf.mpg.de"
 __status__ = "Development"
 
-THRESH = 0.01
+ATTR_THRESH = 0.01
+SALIENCY_THRESH = 0.8   # Threshold from 0.8 * max(saliency_mask)
 
 
-def dct_to_mask_list(filename_to_probs, fname_index, idx_to_attr_id, attr_set_use):
+def dct_to_mask_list(filename_to_probs, fname_index, idx_to_attr_id, attr_set_use, image_id_to_saliency=None):
     prediction_list = []
     for filename, probs in filename_to_probs.iteritems():
         image_path = fname_index[filename]
-        file_id, ext = osp.splitext(filename)
+        image_id, ext = osp.splitext(filename)
         w, h = get_image_size(image_path)
-        bimask = np.ones((h, w), order='F', dtype='uint8')
+        if image_id_to_saliency.get(image_id, None) is not None:
+            # Use saliency mask instead
+            lowres_saliency = image_id_to_saliency[image_id]
+            # Resize mask (originally is 321 x 321)
+            highres_saliency = scipy.misc.imresize(lowres_saliency, [h, w], interp='bilinear', mode='F')
+            # Binarize it
+            bimask = (highres_saliency > (SALIENCY_THRESH * np.max(highres_saliency))).astype('uint8')
+            bimask = np.asfortranarray(bimask)
+            del lowres_saliency
+            del highres_saliency
+        else:
+            bimask = np.ones((h, w), order='F', dtype='uint8')
         rle = mask.encode(bimask)
         del bimask
         for this_attr_idx, this_attr_prob in enumerate(probs):
             this_attr_id = idx_to_attr_id[this_attr_idx]
-            if this_attr_id in attr_set_use and this_attr_prob > THRESH:
+            if this_attr_id in attr_set_use and this_attr_prob > ATTR_THRESH:
                 score_dct = {
-                    'image_id': file_id,
+                    'image_id': image_id,
                     'attr_id': this_attr_id,
                     'segmentation': rle,
                     'score': this_attr_prob,
@@ -80,6 +93,7 @@ def main():
     parser.add_argument("outfile", type=str, help="Path to write predictions")
     parser.add_argument("-u", "--use_attributes", type=str, default=None, help="Use only these attributes")
     parser.add_argument("-g", "--gt_preds", type=str, default=None, help="Write masks predicted using GT too")
+    parser.add_argument("-s", "--saliency", type=str, default=None, help="Additionally use saliency masks")
     args = parser.parse_args()
 
     params = vars(args)
@@ -95,6 +109,13 @@ def main():
     filename_to_probs = {}
     filename_to_gt = {}
 
+    # (Optionally) Load saliency mask ----------------------------------------------------------------------------------
+    image_id_to_saliency = None
+    if params['saliency'] is not None:
+        print 'Loading saliency map...'
+        image_id_to_saliency = pickle.load(open(params['saliency']))
+
+    print 'Processing masks...'
     # Load PAP results -------------------------------------------------------------------------------------------------
     _, attr_id_to_idx_v1 = load_attributes(v1_attributes=True)
     idx_to_attr_id_v1 = {v: k for k, v in attr_id_to_idx_v1.iteritems()}
@@ -130,16 +151,18 @@ def main():
     fname_index = get_image_filename_index()
 
     # Write PAP Predicted mask -----------------------------------------------------------------------------------------
-    print 'Writing masks for {} attributes and {} files'.format(n_attr, n_files)
-    prediction_list = dct_to_mask_list(filename_to_probs, fname_index, idx_to_attr_id, attr_set_use)
+    print 'Writing masks for {} attributes and {} files...'.format(n_attr, n_files)
+    prediction_list = dct_to_mask_list(filename_to_probs, fname_index, idx_to_attr_id, attr_set_use,
+                                       image_id_to_saliency)
 
     with open(params['outfile'], 'w') as wf:
         json.dump(prediction_list, wf, indent=2)
 
     # Optionally, write GT Predicted mask ------------------------------------------------------------------------------
     if params['gt_preds'] is not None:
-        print 'Writing masks for {} attributes and {} files'.format(n_attr, n_files)
-        prediction_list = dct_to_mask_list(filename_to_gt, fname_index, idx_to_attr_id, attr_set_use)
+        print 'Writing GT masks for {} attributes and {} files...'.format(n_attr, n_files)
+        prediction_list = dct_to_mask_list(filename_to_gt, fname_index, idx_to_attr_id, attr_set_use,
+                                           image_id_to_saliency)
 
         with open(params['gt_preds'], 'w') as wf:
             json.dump(prediction_list, wf, indent=2)

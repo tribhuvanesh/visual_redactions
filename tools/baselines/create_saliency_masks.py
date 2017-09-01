@@ -1,7 +1,9 @@
 #!/usr/bin/python
-"""Creates Saliency Masks for images. Convert this to mask predictions using: TODO
+"""Creates Saliency Masks for images. Convert this to mask predictions using: mlc_pap_to_mask.py
 
-Replace this with a more detailed description of what this file contains.
+Create Saliency masks for images using a trained model. Creates a pickle file with the following dict:
+{image_id -> mask}
+where mask \in R^321x321
 """
 import json
 import time
