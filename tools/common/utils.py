@@ -93,6 +93,34 @@ def get_image_filename_index():
         return fname_index
 
 
+def get_image_id_info_index():
+    """
+    Obtain a mapping of image_id -> {image_path, anno_path, fold}
+    :return:
+    """
+    index_path = osp.join(SEG_ROOT, 'privacy_filters', 'cache', 'image_id_info.pkl')
+    if osp.exists(index_path):
+        print 'Found cached index. Loading it...'
+        return pickle.load(open(index_path, 'rb'))
+    else:
+        print 'Creating filename index ...'
+        image_id_index = dict()
+        images_dir = osp.join(DS_ROOT, 'images')
+        anno_dir = osp.join(DS_ROOT, 'annotations')
+        for fold in os.listdir(images_dir):
+            for img_filename in os.listdir(osp.join(images_dir, fold)):
+                image_id, _ = osp.splitext(img_filename)
+                image_path = osp.join(images_dir, fold, img_filename)
+                anno_path = osp.join(anno_dir, fold, image_id + '.json')
+                image_id_index[image_id] = {
+                    'image_path': image_path,
+                    'anno_path': anno_path,
+                    'fold': fold
+                }
+        pickle.dump(image_id_index, open(index_path, 'wb'))
+        return image_id_index
+
+
 def clean_via_annotations(anno_path, img_fname_index=None, return_all=True):
     """
     Clean and add some additional info to via annotations.

@@ -520,7 +520,6 @@ def main():
     args = parser.parse_args()
     params = vars(args)
     vispr = VISPRSegEval(params['gt_file'], params['pred_file'])
-    # vispr.params.iouThrs = np.linspace(.05, 0.95, np.round((0.95 - .05) / .05) + 1, endpoint=True)
     print
     vispr.evaluate()
     # pp = pprint.PrettyPrinter(indent=2)

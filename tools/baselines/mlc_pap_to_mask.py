@@ -92,8 +92,8 @@ def main():
     parser.add_argument("pap_file", type=str, help="PAP file")
     parser.add_argument("outfile", type=str, help="Path to write predictions")
     parser.add_argument("-u", "--use_attributes", type=str, default=None, help="Use only these attributes")
-    parser.add_argument("-g", "--gt_preds", type=str, default=None, help="Write masks predicted using GT too")
-    parser.add_argument("-s", "--saliency", type=str, default=None, help="Additionally use saliency masks")
+    parser.add_argument("-g", "--gt_preds", type=str, default=None, help="Path to write GT-based predictions")
+    parser.add_argument("-s", "--saliency", type=str, default=None, help="Additionally use saliency masks (.pkl file)")
     args = parser.parse_args()
 
     params = vars(args)

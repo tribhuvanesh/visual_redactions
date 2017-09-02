@@ -43,6 +43,18 @@ def resize_min_side(pil_img, mins_len):
     return pil_img.resize((new_w, new_h))
 
 
+def bimask_to_rgba(bimask, color=np.array([95, 242, 186])):
+    h, w = bimask.shape
+    img_arr = np.zeros((h, w, 4))
+
+    # Set alpha
+    img_arr[:, :, -1] = bimask
+    img_arr[:, :, :3] = color
+
+    # return Image.fromarray(img_arr.astype('uint8'))
+    return img_arr
+
+
 def get_image_size(img_path):
     """
     Get image size as (width, height)
