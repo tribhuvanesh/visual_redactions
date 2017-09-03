@@ -38,12 +38,6 @@ io.use_plugin('matplotlib')
 
 from privacy_filters import DS_ROOT, SEG_ROOT, CAFFE_ROOT
 
-sys.path.insert(0, os.path.join(CAFFE_ROOT, 'python'))
-import caffe
-
-sys.path.insert(1, CAFFE_ROOT + 'examples/pycaffe/layers')  # the datalayers we will use are in this directory.
-sys.path.insert(1, CAFFE_ROOT + 'examples/pycaffe')  # the tools file is in this folder
-
 __author__ = "Tribhuvanesh Orekondy"
 __maintainer__ = "Tribhuvanesh Orekondy"
 __email__ = "orekondy@mpi-inf.mpg.de"
@@ -55,7 +49,11 @@ SALIENCY_THRESH = 0.8   # Threshold from 0.8 * max(saliency_mask)
 
 def dct_to_mask_list(filename_to_probs, fname_index, idx_to_attr_id, attr_set_use, image_id_to_saliency=None):
     prediction_list = []
-    for filename, probs in filename_to_probs.iteritems():
+    n_files = len(filename_to_probs)
+    for idx, (filename, probs) in enumerate(filename_to_probs.iteritems()):
+        sys.stdout.write("Processing %d/%d (%.2f%% done) \r" % (idx, n_files,
+                                                                (idx * 100.0) / n_files))
+        sys.stdout.flush()
         image_path = fname_index[filename]
         image_id, ext = osp.splitext(filename)
         w, h = get_image_size(image_path)
@@ -110,7 +108,7 @@ def main():
     filename_to_gt = {}
 
     # (Optionally) Load saliency mask ----------------------------------------------------------------------------------
-    image_id_to_saliency = None
+    image_id_to_saliency = dict()
     if params['saliency'] is not None:
         print 'Loading saliency map...'
         image_id_to_saliency = pickle.load(open(params['saliency']))

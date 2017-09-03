@@ -411,13 +411,14 @@ class VISPRSegEval:
         Note this functin can *only* be applied on the default parameter setting
         '''
 
-        def _summarize(ap=1, iouThr=None, areaRng='all', maxDets=100):
+        def _summarize(ap=1, iouThr=None, areaRng='all', maxDets=100, catind=None):
             p = self.params
-            iStr = ' {:<18} {} @[ IoU={:<9} | area={:>6s} | maxDets={:>3d} ] = {:0.3f}'
+            iStr = ' {:<18} {} @[ IoU={:<9} | area={:>6s} | maxDets={:>3d} | attr_id={:>25s} ] = {:0.3f}'
             titleStr = 'Average Precision' if ap == 1 else 'Average Recall'
             typeStr = '(AP)' if ap == 1 else '(AR)'
             iouStr = '{:0.2f}:{:0.2f}'.format(p.iouThrs[0], p.iouThrs[-1]) \
                 if iouThr is None else '{:0.2f}'.format(iouThr)
+            catStr = 'all' if catind is None else p.attrIds[catind]
 
             aind = [i for i, aRng in enumerate(p.areaRngLbl) if aRng == areaRng]
             mind = [i for i, mDet in enumerate(p.maxDets) if mDet == maxDets]
@@ -428,47 +429,30 @@ class VISPRSegEval:
                 if iouThr is not None:
                     t = np.where(iouThr == p.iouThrs)[0]
                     s = s[t]
-                s = s[:, :, :, aind, mind]
+                if catind is None:
+                    s = s[:, :, :, aind, mind]
+                else:
+                    s = s[:, :, catind, aind, mind]
             else:
                 # dimension of recall: [TxKxAxM]
                 s = self.eval['recall']
                 if iouThr is not None:
                     t = np.where(iouThr == p.iouThrs)[0]
                     s = s[t]
-                s = s[:, :, aind, mind]
+                if catind is None:
+                    s = s[:, :, aind, mind]
+                else:
+                    s = s[:, catind, aind, mind]
             if len(s[s > -1]) == 0:
                 mean_s = -1
             else:
                 mean_s = np.mean(s[s > -1])
-            print(iStr.format(titleStr, typeStr, iouStr, areaRng, maxDets, mean_s))
+            print(iStr.format(titleStr, typeStr, iouStr, areaRng, maxDets, catStr, mean_s))
             return mean_s
 
-        def _summarize_cats(ap=1, iouThr=0.5, areaRng='all', maxDets=100):
-            p = self.params
-
-            for k, attr_id in enumerate(self.params.attrIds):
-                iStr = '{:<30} {:<18} {} @[ IoU={:<9} | area={:>6s} | maxDets={:>3d} ] = {:0.3f}'
-                titleStr = 'Average Precision' if ap == 1 else 'Average Recall'
-                typeStr = '(AP)' if ap == 1 else '(AR)'
-                iouStr = '{:0.2f}:{:0.2f}'.format(p.iouThrs[0], p.iouThrs[-1]) \
-                    if iouThr is None else '{:0.2f}'.format(iouThr)
-
-                aind = [i for i, aRng in enumerate(p.areaRngLbl) if aRng == areaRng]
-                mind = [i for i, mDet in enumerate(p.maxDets) if mDet == maxDets]
-                # dimension of precision: [TxRxKxAxM]
-                s = self.eval['precision']
-                if iouThr is not None:
-                    t = np.where(iouThr == p.iouThrs)[0]
-                    s = s[t]
-                s = s[:, :, k, aind, mind]
-                if len(s[s > -1]) == 0:
-                    mean_s = -1
-                else:
-                    mean_s = np.mean(s[s > -1])
-                print(iStr.format(attr_id, titleStr, typeStr, iouStr, areaRng, maxDets, mean_s))
-
         def _summarizeDets():
-            stats = np.zeros((12,))
+            n_attr = len(self.params.attrIds)
+            stats = np.zeros((12 + n_attr,))
             stats[0] = _summarize(1)
             stats[1] = _summarize(1, iouThr=.5, maxDets=self.params.maxDets[2])
             stats[2] = _summarize(1, iouThr=.75, maxDets=self.params.maxDets[2])
@@ -481,14 +465,15 @@ class VISPRSegEval:
             stats[9] = _summarize(0, areaRng='small', maxDets=self.params.maxDets[2])
             stats[10] = _summarize(0, areaRng='medium', maxDets=self.params.maxDets[2])
             stats[11] = _summarize(0, areaRng='large', maxDets=self.params.maxDets[2])
+            print
+            for k in range(n_attr):
+                stats[12+k] = _summarize(1, iouThr=.5, maxDets=self.params.maxDets[2], catind=k)
             return stats
 
         if not self.eval:
             raise Exception('Please run accumulate() first')
 
         self.stats = _summarizeDets()
-        print
-        _summarize_cats(iouThr=0.5)
 
     def __str__(self):
         self.summarize()
@@ -517,15 +502,18 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("gt_file", type=str, help="GT File")
     parser.add_argument("pred_file", type=str, help="Predicted file")
+    parser.add_argument("-r", "--row", action='store_true', default=False,
+                        help="Print an additional row to aid pasting results into a spreadsheet")
     args = parser.parse_args()
     params = vars(args)
     vispr = VISPRSegEval(params['gt_file'], params['pred_file'])
     print
     vispr.evaluate()
-    # pp = pprint.PrettyPrinter(indent=2)
-    # pp.pprint(vispr.evalImgs)
     vispr.accumulate()
     vispr.summarize()
+
+    if params['row']:
+        print '\t'.join(map(lambda x: '{:0.3f}'.format(x), vispr.stats.tolist()))
 
 if __name__ == '__main__':
     main()
