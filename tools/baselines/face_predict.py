@@ -26,20 +26,12 @@ from privacy_filters.tools.common.image_utils import get_image_size
 from privacy_filters.tools.common.utils import load_attributes
 from privacy_filters.tools.common.adapter_utils import prev_to_new_attr_vec, prev_to_new_masks
 from privacy_filters.tools.common.utils import load_attributes, get_image_id_info_index, labels_to_vec
+from privacy_filters.tools.common.extra_anno_utils import EXTRA_ANNO_PATH, bb_to_verts
 
 __author__ = "Tribhuvanesh Orekondy"
 __maintainer__ = "Tribhuvanesh Orekondy"
 __email__ = "orekondy@mpi-inf.mpg.de"
 __status__ = "Development"
-
-EXTRA_ANNO_PATH = osp.join(SEG_ROOT, 'annotations-extra-2')
-
-
-def bb_to_verts(bb):
-    vrts_dct = bb['vertices']  # List of [ {x:__, y:__}, ... ]
-    vrts = [[d.get('x', 0), d.get('y', 0)] for d in vrts_dct]  # Convert to [ [x1, y1], [x2, y2], ..]
-    vrts.append(vrts[0])  # Reconnect to first vertex
-    return np.ndarray.flatten(np.asarray(vrts))
 
 
 def main():
@@ -72,7 +64,7 @@ def main():
         # Load extra-annotation for this image_id
         fold = image_id_index[image_id]['fold']
         image_path = image_id_index[image_id]['image_path']
-        extra_anno_path = osp.join(EXTRA_ANNO_PATH, fold, image_id + '-extra.json')
+        extra_anno_path = osp.join(EXTRA_ANNO_PATH, fold, image_id + '.json')
 
         image_width, image_height = get_image_size(image_path)
 

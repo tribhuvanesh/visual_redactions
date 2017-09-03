@@ -72,6 +72,13 @@ def labels_to_vec(labels, attr_id_to_idx):
     return label_vec
 
 
+def vec_to_labels(label_vec, idx_to_attr_id):
+    labels = []
+    for idx in np.where(label_vec > 0)[0]:
+        labels.append(idx_to_attr_id[idx])
+    return labels
+
+
 def get_image_filename_index():
     """
     Obtain a mapping of filename -> filepath for images
