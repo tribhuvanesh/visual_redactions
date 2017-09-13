@@ -68,7 +68,7 @@ class VISPRSegEval:
             'segmentation': RLE,
             'score': float,
         }
-    ]
+le
     """
     def __init__(self, gt_path, pred_path):
         self.gt_path = gt_path
@@ -96,6 +96,7 @@ class VISPRSegEval:
         print '# Attributes = ', len(self.params.attrIds)
 
         self.stats = []
+        self.stats_str = ""
 
     def prepare(self):
         """
@@ -447,7 +448,9 @@ class VISPRSegEval:
                 mean_s = -1
             else:
                 mean_s = np.mean(s[s > -1])
-            print(iStr.format(titleStr, typeStr, iouStr, areaRng, maxDets, catStr, mean_s))
+            line = iStr.format(titleStr, typeStr, iouStr, areaRng, maxDets, catStr, mean_s)
+            print line
+            self.stats_str += line + '\n'
             return mean_s
 
         def _summarizeDets():
@@ -513,7 +516,12 @@ def main():
     vispr.summarize()
 
     if params['row']:
-        print '\t'.join(map(lambda x: '{:0.3f}'.format(x), vispr.stats.tolist()))
+        print
+        # You can now copy-paste this line into a spreadsheet. Seems like this does not work from within tmux.
+        print 'Overall scores: '
+        print '\t'.join(map(lambda x: '{}'.format(x), vispr.stats[:12].tolist()))
+        print 'Class scores: '
+        print '\t'.join(map(lambda x: '{}'.format(x), vispr.stats[12:].tolist()))
 
 if __name__ == '__main__':
     main()
