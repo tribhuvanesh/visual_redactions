@@ -70,7 +70,6 @@ def main():
 
     # --- Load some necessary helpers ----------------------------------------------------------------------------------
     image_id_index = get_image_id_info_index()
-    attr_id_to_name, attr_id_to_idx = load_attributes()
     _, attr_id_to_idx_v1 = load_attributes(v1_attributes=True)
     idx_to_attr_id_v1 = {v: k for k, v in attr_id_to_idx_v1.iteritems()}
     _, attr_id_to_idx = load_attributes()

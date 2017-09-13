@@ -53,6 +53,8 @@ def main():
     parser.add_argument("gt_file", type=str, help="GT File")
     parser.add_argument("pred_file", type=str, help="Predicted file")
     parser.add_argument("out_dir", type=str, help="Output directory to place output files")
+    parser.add_argument("-s", "--skip", action='store_true', default=False,
+                        help="Skip images that were not predicted")
     args = parser.parse_args()
     params = vars(args)
 
@@ -70,22 +72,36 @@ def main():
     n_imgs = len(image_ids)
 
     out_dir = params['out_dir']
+    out_skip_dir = osp.join(out_dir, 'skipped')
     if not osp.exists(out_dir):
         print 'Directory {} does not exist. Creating it...'.format(out_dir)
         os.mkdir(out_dir)
+    if not osp.exists(out_skip_dir):
+        print 'Directory {} does not exist. Creating it...'.format(out_skip_dir)
+        os.mkdir(out_skip_dir)
 
     # Setup colors
     np.random.seed(42)
     colors = [(np.random.random(size=3) * 255).astype(int) for i in range(40)]
     np.random.shuffle(image_ids)
 
+    # What are the image IDs of the ones predicted?
+    predicted_image_ids = set()
+    for pd in vispr.vispr_pred:
+        predicted_image_ids.add(pd['image_id'])
+
     # Visualize --------------------------------------------------------------------------------------------------------
-    for img_idx, image_id in enumerate(image_ids[:50]):
+    for img_idx, image_id in enumerate(image_ids):
         sys.stdout.write("Processing %d/%d (%.2f%% done) \r" % (img_idx, n_imgs,
                                                                 (img_idx * 100.0) / n_imgs))
         sys.stdout.flush()
 
-        out_path = osp.join(out_dir, image_id + '.jpg')
+        if image_id in predicted_image_ids:
+            out_path = osp.join(out_dir, image_id + '.jpg')
+        else:
+            out_path = osp.join(out_skip_dir, image_id + '.jpg')
+            if params['skip']:
+                continue
 
         # For how many attributes do we need to print image? ----------------------------
         # Union of predicted + GT attributes in this image
@@ -150,7 +166,12 @@ def main():
                 for inst_idx, det in enumerate(sorted(vispr._pds[key], key=lambda x: -x['area'])):
                     rle = det['segmentation']
                     bimask = mask_utils.decode(rle)
-                    inst_mask = bimask_to_rgba(bimask, colors[inst_idx])
+                    # inst_mask = bimask_to_rgba(bimask, colors[inst_idx])
+                    if inst_idx >= len(colors):
+                        colr_idx = (len(colors) % (inst_idx+1)) - 1
+                        inst_mask = bimask_to_rgba(bimask, colors[colr_idx])
+                    else:
+                        inst_mask = bimask_to_rgba(bimask, colors[inst_idx])
                     ax.imshow(inst_mask, alpha=0.8)
                     del bimask
                     del inst_mask

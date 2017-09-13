@@ -64,6 +64,25 @@ def load_attributes(v1_attributes=False):
     return attr_id_to_name, attr_id_to_idx
 
 
+def load_attributes_shorthand():
+    """
+    Return mappings of:
+    attribute_id -> attribute_name
+    :return:
+    """
+    attributes_path = osp.join(SEG_ROOT, 'attributes.tsv')
+    attr_id_to_name = dict()
+
+    with open(attributes_path, 'r') as fin:
+        ts = csv.DictReader(fin, delimiter='\t')
+        rows = filter(lambda r: r['idx'] is not '', [row for row in ts])
+
+        for row in rows:
+            attr_id_to_name[row['attribute_id']] = row['shorthand']
+
+    return attr_id_to_name
+
+
 def labels_to_vec(labels, attr_id_to_idx):
     n_labels = len(attr_id_to_idx)
     label_vec = np.zeros(n_labels)
@@ -288,11 +307,11 @@ def clean_via_annotations(anno_path, img_fname_index=None, return_all=True):
 
     # Remove spurious polygons i.e., with just 2 points
     for key, entry in via_cleaned_anno.iteritems():
-        for k, region_dct in entry['regions'].iteritems():
+        for k in entry['regions'].keys():
+            region_dct = entry['regions'][k]
             if region_dct['shape_attributes']['name'] == 'polygon':
                 if len(region_dct['shape_attributes']['all_points_x']) < 3:
                     del via_cleaned_anno[key]['regions'][k]
-                    break
 
     # Sometimes VIA uses negative values for points close to the border. Replace them with 0s
     for key, entry in via_cleaned_anno.iteritems():

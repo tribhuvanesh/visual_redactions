@@ -83,7 +83,7 @@ class AttributeAnnotation:
         self.instance_id = new_instance_id
 
     def add_polygon(self, polygon):
-        assert all([type(z) in [int, float] for z in polygon])  # Contains only numbers
+        assert all([type(z) in [int, float, np.float, np.float64] for z in polygon])  # Contains only numbers
         assert all([z >= 0. for z in polygon]), 'Found negative values in polygon: {}'.format(
             filter(lambda z: z < 0., polygon))
         assert len(polygon) >= 6  # Contains at least 3 points
@@ -99,8 +99,8 @@ class AttributeAnnotation:
         rles = mask.frPyObjects(self.polygons, image_height, image_width)
         rle = mask.merge(rles)
         self.segmentation = rle
-        self.area = mask.area(rles).tolist()
-        self.bbox = mask.toBbox(rles).tolist()
+        self.area = mask.area(rle).tolist()
+        self.bbox = mask.toBbox(rle).tolist()
 
 
 class AnnoEncoder(json.JSONEncoder):

@@ -119,7 +119,11 @@ def collate(fold_name, snapshot_name):
 
         for file_name, entry in via_list.iteritems():
             img_path = entry['filepath']
-            w, h = get_image_size(img_path)
+            try:
+                w, h = get_image_size(img_path)
+            except ZeroDivisionError:
+                print file_name
+                raise
             file_attr_dct = entry['file_attributes']
             file_id, ext = osp.splitext(file_name)
 
@@ -201,8 +205,12 @@ def collate(fold_name, snapshot_name):
                 ainst_id_to_attr_anno = dict()
                 # Iterate over each anno region
                 for region in entry['regions'].values():
-                    all_points_x = region['shape_attributes']['all_points_x']
-                    all_points_y = region['shape_attributes']['all_points_y']
+                    try:
+                        all_points_x = region['shape_attributes']['all_points_x']
+                        all_points_y = region['shape_attributes']['all_points_y']
+                    except KeyError:
+                        print file_name
+                        raise
                     assigned_instance_id = region['assigned_instance_id']
                     # Squish x and y into [x1 y1 x2 y2 ...]
                     polygon = [z for xy_tup in zip(all_points_x, all_points_y) for z in xy_tup]
@@ -212,7 +220,7 @@ def collate(fold_name, snapshot_name):
                         try:
                             this_attr_anno = AttributeAnnotation(assigned_instance_id, attr_id, [polygon, ])
                         except AssertionError:
-                            print file_name, batch_filepath
+                            print file_name, batch_filepath, polygon
                             raise
                         ainst_id_to_attr_anno[assigned_instance_id] = this_attr_anno
 
