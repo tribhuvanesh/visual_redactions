@@ -38,7 +38,7 @@ __status__ = "Development"
 
 # These are the attributes whose regions are primarily text-based
 TEXT_ATTR_ID = ['a107_address_home_all', 'a108_license_plate_all', 'a19_name_full', 'a20_name_first', 'a26_handwriting',
-                'a73_landmark', 'a82_date_time', 'a85_username', 'a8_signature', 'a49_phone',
+                'a73_landmark', 'a82_date_time', 'a85_username', 'a8_signature', 'a49_phone', 'a21_name_last',
                 # Documents
                 'a29_ausweis', 'a30_credit_card', 'a31_passport', 'a32_drivers_license', 'a33_student_id', 'a35_mail',
                 'a37_receipt', 'a38_ticket'
