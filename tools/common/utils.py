@@ -83,6 +83,25 @@ def load_attributes_shorthand():
     return attr_id_to_name
 
 
+def load_attributes_questions():
+    """
+    Return mappings of:
+    attribute_id -> attribute_question (Phase 7 AMT experiment)
+    :return:
+    """
+    attributes_path = osp.join(SEG_ROOT, 'privacy_filters', 'resources', 'attr_id_to_question.tsv')
+    attr_id_to_name = dict()
+
+    with open(attributes_path, 'r') as fin:
+        ts = csv.DictReader(fin, delimiter='\t')
+        rows = filter(lambda r: r['idx'] is not '', [row for row in ts])
+
+        for row in rows:
+            attr_id_to_name[row['attr_id']] = row['question']
+
+    return attr_id_to_name
+
+
 def labels_to_vec(labels, attr_id_to_idx):
     n_labels = len(attr_id_to_idx)
     label_vec = np.zeros(n_labels)

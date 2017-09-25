@@ -64,6 +64,14 @@ __status__ = "Development"
 
 PERSON_ATTR_ID = 'a109_person_body'
 
+# Mapping of old_attribute_id -> new_attribute_id
+RENAME_RULES = {
+    # Merge all names into a single category
+    'a19_name_full': 'a111_name_all',
+    'a20_name_first': 'a111_name_all',
+    'a21_name_last': 'a111_name_all',
+}
+
 
 def anno_stats(file_id_to_img_anno):
     """
@@ -175,7 +183,12 @@ def collate(fold_name, snapshot_name):
         if len(batch_anno_filenames) > 0:
             # Skip batches which were used for consensus (e.g., 0_abc.json)
             batch_anno_filenames = filter(lambda x: re.search('^[0-9]+$', osp.splitext(x)[0]), batch_anno_filenames)
-            print 'Processing attribute "{}" (# Batches = {})... '.format(attr_id, len(batch_anno_filenames))
+            if attr_id not in RENAME_RULES:
+                print 'Processing attribute "{}" (# Batches = {})... '.format(attr_id, len(batch_anno_filenames))
+            else:
+                print 'Processing attribute "{}" (renamed as {}) (# Batches = {})... '.format(attr_id,
+                                                                                              RENAME_RULES[attr_id],
+                                                                                              len(batch_anno_filenames))
         for batch_idx, batch_fname in enumerate(sorted(batch_anno_filenames, key=lambda x: int(osp.splitext(x)[0]))):
             # Iterate over each batch
             batch_filepath = osp.join(phase4_batch_dir, attr_id, batch_fname)
@@ -218,7 +231,8 @@ def collate(fold_name, snapshot_name):
                         ainst_id_to_attr_anno[assigned_instance_id].add_polygon(polygon)
                     else:
                         try:
-                            this_attr_anno = AttributeAnnotation(assigned_instance_id, attr_id, [polygon, ])
+                            new_attr_id = RENAME_RULES.get(attr_id, attr_id)
+                            this_attr_anno = AttributeAnnotation(assigned_instance_id, new_attr_id, [polygon, ])
                         except AssertionError:
                             print file_name, batch_filepath, polygon
                             raise

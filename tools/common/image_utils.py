@@ -73,6 +73,21 @@ def draw_outline_on_img(pil_img, poly, color='yellow', width=4):
     return im
 
 
+def redact_img(pil_img, segmentation, fill='black', outline='black'):
+    if type(segmentation) is not list:
+        raise NotImplementedError
+    else:
+        polys = segmentation
+        if type(polys[0]) is not list:
+            polys = [polys, ]
+        im = pil_img.copy()
+        draw = ImageDraw.Draw(im)
+        for poly in polys:
+            draw.polygon(poly, fill=fill, outline=outline)
+        del draw
+        return im
+
+
 def blur_region(org_im, poly, radius=2):
     im = org_im.copy()
 
