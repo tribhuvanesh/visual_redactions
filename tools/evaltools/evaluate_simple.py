@@ -46,6 +46,39 @@ __email__ = "orekondy@mpi-inf.mpg.de"
 __status__ = "Development"
 
 
+SIZE_TO_ATTR_ID = {
+    'small': [u'a106_address_current_all',
+                 u'a107_address_home_all',
+                 u'a108_license_plate_all',
+                 u'a111_name_all',
+                 u'a24_birth_date',
+                 u'a49_phone',
+                 u'a73_landmark',
+                 u'a82_date_time',
+                 u'a85_username',
+                 u'a8_signature',
+                 u'a90_email',],
+    'medium': [u'a105_face_all',
+                 u'a109_person_body',
+                 u'a110_nudity_all',
+                 u'a18_ethnic_clothing',
+                 u'a26_handwriting',
+                 u'a30_credit_card',
+                 u'a39_disability_physical',
+                 u'a43_medicine',
+                 u'a70_education_history',
+                 u'a7_fingerprint', ],
+    'large': [u'a29_ausweis',
+                 u'a31_passport',
+                 u'a32_drivers_license',
+                 u'a33_student_id',
+                 u'a35_mail',
+                 u'a37_receipt',
+                 u'a38_ticket',
+              ],
+}
+
+
 class VISPRSegEvalSimple:
     """
     GT format:
@@ -153,7 +186,11 @@ le
         # --- Prepared Predictions -------------------------------------------------------------------------------------
         next_pred_id = 0
         next_pred_id_dd = dd(int)
+        n_pred_ignored = 0
         for pred in self.vispr_pred:
+            if pred['score'] < self.params.score_thresh:
+                n_pred_ignored += 1
+                continue
             image_id = pred['image_id']
             attr_id = pred['attr_id']
             assert pred.get('segmentation', None) is not None
@@ -164,6 +201,9 @@ le
             next_pred_id_dd[image_id] += 1
             pred['area'] = mask_utils.area(pred['segmentation'])
             self._pds[(image_id, attr_id)].append(pred)
+
+        print '# Predictions available = ', len(self.vispr_pred)
+        print '# Ignored (score < {}) = {}'.format(self.params.score_thresh, n_pred_ignored)
 
         self.evalImgs = dd(list)  # per-image per-category evaluation results
         self.eval = {}  # accumulated evaluation results
@@ -214,6 +254,11 @@ le
 
                 if (not gt_exists) and (not pd_exists):
                     continue
+
+                # if not gt_exists:
+                #     # FIXME - What should be done here?
+                #     # I guess, we use IoU=0.0 in such cases and ignore precision/recall
+                #     continue
 
                 # Create a GT bimask
                 gt = self._gts[(image_id, attr_id)]
@@ -461,6 +506,7 @@ class Params:
 
     def __init__(self):
         self.setDetParams()
+        self.score_thresh = 0.0
 
 
 def main():
@@ -473,10 +519,14 @@ def main():
                         help="Write summarized results into JSON in predicted file directory")
     parser.add_argument("-v", "--visualize_results", type=str, default=None,
                         help="Write visualizations in this file directory")
+    parser.add_argument("-t", "--threshold", type=float, default=0.0,
+                        help="Use only predictions whose scores are above this threshold")
     args = parser.parse_args()
     params = vars(args)
-    vispr = VISPRSegEvalSimple(params['gt_file'], params['pred_file'])
     print
+    print 'Evaluating: ', params['pred_file']
+    vispr = VISPRSegEvalSimple(params['gt_file'], params['pred_file'])
+    vispr.params.score_thresh = params['threshold']
     vispr.evaluate(visualize_dir=params['visualize_results'])
     vispr.accumulate()
     vispr.summarize()
@@ -503,12 +553,27 @@ def main():
 
         print 'Writing results to: ', out_path
 
+        idx_to_attr_id = dict()
+        for attr_idx, attr_id in enumerate(vispr.params.attrIds):
+            idx_to_attr_id[attr_idx] = attr_id
+        attr_id_to_idx = {v:k for k, v in idx_to_attr_id.iteritems()}
+
         out_dct = dict()
+        # --- Overall stats
         out_dct['overall'] = {
             'precision': np.mean(vispr.overall_stats['precision']),
             'recall': np.mean(vispr.overall_stats['recall']),
             'iou': np.mean(vispr.overall_stats['iou']),
         }
+        # --- Per Size
+        out_dct['per_size'] = dict()
+        for _size in ['small', 'medium', 'large']:
+            out_dct['per_size'][_size] = dict()
+            for metric in ['precision', 'recall', 'iou']:
+                out_dct['per_size'][_size][metric] = np.mean([vispr.overall_stats[metric][attr_id_to_idx[attr_id]]
+                                                              for attr_id in SIZE_TO_ATTR_ID[_size]])
+
+        # --- Per Attribute
         out_dct['per_attribute'] = dict()
         for attr_idx, attr_id in enumerate(vispr.params.attrIds):
             out_dct['per_attribute'][attr_id] = dict()
