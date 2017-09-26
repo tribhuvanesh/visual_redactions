@@ -23,8 +23,10 @@ from pycocotools import mask as mask_utils
 
 from collections import Counter
 
+import nltk
+
 from privacy_filters.tools.common.utils import *
-from privacy_filters.tools.common.extra_anno_utils import EXTRA_ANNO_PATH, bb_to_verts
+from privacy_filters.tools.common.extra_anno_utils import EXTRA_ANNO_PATH, bb_to_verts, load_image_id_to_text
 from privacy_filters import SEG_ROOT
 
 import keras
@@ -110,6 +112,8 @@ def main():
                         help="Augment data s.t. each attribute appears at least these many times")
     parser.add_argument("-c", "--class_weight", default=False, action='store_true',
                         help="Use class weights during training")
+    parser.add_argument("-v", "--vocab_size", default=10000, type=int,
+                        help="Size of vocabulary")
     args = parser.parse_args()
 
     params = vars(args)
@@ -134,6 +138,7 @@ def main():
     # Helpers  ---------------------------------------------------------------------------------------------------------
     image_index = get_image_id_info_index()
     attr_id_to_name = load_attributes_shorthand()
+    image_to_text_index = load_image_id_to_text()
     image_ids = sorted(train_anno.keys())
 
     attr_ids_set = set()
@@ -173,7 +178,7 @@ def main():
                 counter[attr_id] += 1
 
         min_count = params['augment']  # Each attribute should appear at least these many times
-        x_train_aug, y_train_aug = [], []
+        x_train_aug, y_train_aug, image_id_train_aug = [], [], []
 
         # Which attributes do we need to augment for?
         attr_ids_aug = filter(lambda x: counter[x] < min_count, attr_ids)
@@ -192,6 +197,7 @@ def main():
                 # Add to augmented set
                 x_train_aug.append(x_train[row_idx])
                 y_train_aug.append(y_train[row_idx])
+                image_id_train_aug.append(image_id_train[row_idx])
 
         x_train_aug = np.asarray(x_train_aug)
         y_train_aug = np.asarray(y_train_aug)
@@ -200,23 +206,80 @@ def main():
 
         x_train = np.concatenate((x_train, x_train_aug), axis=0)
         y_train = np.concatenate((y_train, y_train_aug), axis=0)
+        image_id_train += image_id_train_aug
 
     # Class Weights ----------------------------------------------------------------------------------------------------
     class_weight = np.ones((n_attr, ))
     if params['class_weight']:
-        n_samples, n_classes = y_train.shape
+        n_train_samples, n_classes = y_train.shape
         for i in range(n_attr):
-            class_weight[i] = n_samples / (n_classes * np.sum(y_train[:, i]))
+            class_weight[i] = n_train_samples / (n_classes * np.sum(y_train[:, i]))
+
+    # Text Preprocessing  ----------------------------------------------------------------------------------------------
+    # ---- 1. Tokenize words in each image
+    tokenizer = nltk.word_tokenize
+    for anno in [train_anno, val_anno]:
+        for image_id in anno:
+            if image_id in image_to_text_index:
+                this_text = image_to_text_index[image_id].lower()
+                this_tokens = tokenizer(this_text)
+                anno[image_id]['tokens'] = this_tokens
+            else:
+                anno[image_id]['tokens'] = []
+
+    # ---- 2. Set Vocabulary (using only train)
+    word_counter = Counter()
+    for image_id, entry in train_anno.iteritems():
+        for tok in entry['tokens']:
+            word_counter[tok] += 1
+
+    print
+    print 'Complete Vocab size = ', len(word_counter)
+    print '# >= 2 occurences = ', len(filter(lambda x: x >= 2, word_counter.values()))
+    print '# >= 3 occurences = ', len(filter(lambda x: x >= 3, word_counter.values()))
+    print '# >= 4 occurences = ', len(filter(lambda x: x >= 4, word_counter.values()))
+
+    vocab_size = params['vocab_size']
+    word_to_idx = dict()
+
+    ukn_token = 'ukn'
+    ukn_idx = 0
+    word_to_idx[ukn_token] = ukn_idx
+
+    for idx, (word, word_count) in enumerate(word_counter.most_common()):
+        if idx >= vocab_size - 1:
+            break
+        else:
+            word_to_idx[word] = idx + 1
+
+    print 'Size of current vocab = ', len(word_to_idx)
+
+    # ---- 3. Tokens -> vec
+    # Train
+    n_train_samples = x_train.shape[0]
+    x_train_text = np.zeros((n_train_samples, vocab_size))
+    for row_idx, image_id in enumerate(image_id_train):
+        for tok in train_anno[image_id]['tokens']:
+            tok_idx = word_to_idx.get(tok, ukn_idx)
+            x_train_text[row_idx, tok_idx] = 1
+    # Val
+    n_val_samples = x_val.shape[0]
+    x_val_text = np.zeros((n_val_samples, vocab_size))
+    for row_idx, image_id in enumerate(image_id_val):
+        for tok in val_anno[image_id]['tokens']:
+            tok_idx = word_to_idx.get(tok, ukn_idx)
+            x_val_text[row_idx, tok_idx] = 1
 
     # Image Preprocessing  ---------------------------------------------------------------------------------------------
-    datagen = ImageDataGenerator(
+    seed = 42
+    img_datagen = ImageDataGenerator(
         featurewise_center=True,
         featurewise_std_normalization=True,
         rotation_range=20,
         width_shift_range=0.2,
         height_shift_range=0.2,
         horizontal_flip=True)
-    datagen.fit(x_train)
+    img_datagen.fit(x_train, seed=seed)
 
     # Model ------------------------------------------------------------------------------------------------------------
     if params['model'] == 'inception':
@@ -249,7 +312,7 @@ def main():
     epochs = params['epochs']
     batch_size = params['batch_size']
     print 'Training with #Epochs = {}, Batch size = {}'.format(epochs, batch_size)
-    model.fit_generator(datagen.flow(x_train, y_train, batch_size=batch_size),
+    model.fit_generator(img_datagen.flow(x_train, y_train, batch_size=batch_size),
                         steps_per_epoch=len(x_train) / batch_size, epochs=epochs,
                         class_weight=class_weight)
 
@@ -261,7 +324,7 @@ def main():
     print 'Evaluating Model...'
     batch_size = params['batch_size']
     n_val_rows = x_val.shape[0]
-    preds = model.predict_generator(datagen.flow(x_val, batch_size=batch_size, shuffle=False),
+    preds = model.predict_generator(img_datagen.flow(x_val, batch_size=batch_size, shuffle=False),
                                     steps=(n_val_rows / batch_size) + 1, verbose=1)
     # preds = model.predict(x_val, verbose=1)
 
