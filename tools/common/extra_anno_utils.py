@@ -37,6 +37,14 @@ def bb_to_verts(bb):
     return np.ndarray.flatten(np.asarray(vrts))
 
 
+def bb_to_centroid(bb):
+    vrts_dct = bb['vertices']  # List of [ {x:__, y:__}, ... ]
+    vrts = [[d.get('x', 0), d.get('y', 0)] for d in vrts_dct]  # Convert to [ [x1, y1], [x2, y2], ..]
+    cx = np.mean([xy[0] for xy in vrts])
+    cy = np.mean([xy[1] for xy in vrts])
+    return cx, cy
+
+
 def load_image_id_to_text():
     index_path = osp.join(SEG_ROOT, 'privacy_filters', 'cache', 'image_id_text_index.pkl')
     if osp.exists(index_path):

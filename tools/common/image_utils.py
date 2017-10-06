@@ -19,6 +19,8 @@ import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw, ImageFilter
 from scipy.misc import imread
 
+from pycocotools import mask as mask_utils
+
 __author__ = "Tribhuvanesh Orekondy"
 __maintainer__ = "Tribhuvanesh Orekondy"
 __email__ = "orekondy@mpi-inf.mpg.de"
@@ -71,6 +73,33 @@ def draw_outline_on_img(pil_img, poly, color='yellow', width=4):
     draw.line(poly, fill=color, width=4)
     del draw
     return im
+
+
+def get_instance_crop(img_path, rle, bbox=None):
+    """
+
+    :param img_path: Absolute path to image
+    :param rle: RLE-encoded instance
+    :param bbox: [x, y, w, h]
+    :return:
+    """
+    if bbox is None:
+        bbox = mask_utils.toBbox(rle)
+
+    im = Image.open(img_path).convert('RGB')
+    imarr = np.asarray(im).copy()
+    bimask = mask_utils.decode(rle)
+    bimask = np.tile(bimask[:, :, None], 3)  # RGB
+    imarr[bimask == 0] = 255  # Set pixels outside instance as white
+
+    x, y, w, h = bbox
+    masked_im = Image.fromarray(imarr).crop([x, y, x + w, y + h])
+
+    del im
+    del imarr
+    del bimask
+
+    return masked_im
 
 
 def redact_img(pil_img, segmentation, fill='black', outline='black'):
