@@ -46,6 +46,8 @@ __email__ = "orekondy@mpi-inf.mpg.de"
 __status__ = "Development"
 
 
+MIN_PIXELS = 2**11   # Ignore this mask if it contains under these many pixels
+
 SIZE_TO_ATTR_ID = {
     'small': [u'a106_address_current_all',
                  u'a107_address_home_all',
@@ -247,6 +249,8 @@ le
             else:
                 mask_stats_list = None
 
+            vis_img = False
+
             for attr_idx, attr_id in enumerate(attr_ids):
                 key = (image_id, attr_id)
                 gt_exists = key in self._gts
@@ -268,6 +272,9 @@ le
                 except AssertionError:
                     print image_id
                     raise
+
+                if np.sum(gt_mask > 0) < MIN_PIXELS:
+                    continue
 
                 # Create Predicted bimask
                 pd = self._pds[(image_id, attr_id)]
@@ -295,7 +302,10 @@ le
                 del gt_mask
                 del pd_mask
 
-            if mask_stats_list is not None:
+                if attr_id in SIZE_TO_ATTR_ID['small']:
+                    vis_img = True
+
+            if mask_stats_list is not None and vis_img:
                 vis_out_path = osp.join(visualize_dir, image_id + '.jpg')
                 self.visualize_img(mask_stats_list, image_id, vis_out_path)
                 del mask_stats_list
