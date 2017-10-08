@@ -1,0 +1,29 @@
+idx	attr_name	attr_id	question
+7	Fingerprint	a7_fingerprint	Is someone's <u>Fingerprint</u> (such as a close-up shot of a finger displaying ridges or finger impressions on paper) visible in the image?
+8	Signature	a8_signature	Is someone's <u>Signature</u> visible in the image?
+16	Traditional clothing	a18_ethnic_clothing	Does someone appear in <u>Traditional clothing</u> (such as dirndl, saree, kilts, kimono) in the image?
+21	Date of Birth	a24_birth_date	Is someone's <u>Date of Birth</u> (year, month, or date) visible in the image?
+23	Handwriting	a26_handwriting	Is <u>Handwritten text</u> visible in the image?
+25	National Identification	a29_ausweis	Is someone's <u>National Identity Card</u> (Green Card, Residence Permit, European ID, etc.) visible in the image?
+26	Credit Card	a30_credit_card	Is someone's <u>Credit Card or related details</u>(such as partial Credit Card number, MasterCard/Visa, expiry date, bank name, etc.) visible in the image?
+27	Passport	a31_passport	Is someone's <u>Passport</u> (either front cover or any page of a passport) visible in the image?
+28	Drivers License	a32_drivers_license	Is someone's <u>Drivers License or related information</u> visible in the image?
+29	Student ID	a33_student_id	Is someone's <u>Student ID card</u> visible in the image?
+30	Mail	a35_mail	Is someone's <u>Mail, Mail content or envelope</u> visible in the image?
+31	Receipts	a37_receipt	Is a <u>Receipt</u> (or a document displaying a financial transaction) visible in the image?
+32	Tickets	a38_ticket	Is a <u>Ticket</u> (like for a concert, sport event, flight, travel, etc) visible in the image?
+33	Physical disability	a39_disability_physical	Is someone <u>Physically disabled</u> in the image?
+35	Medical History	a43_medicine	Is someone's <u>Medical History</u> (e.g., pill type, medicine names, prescriptions, etc) visible in the image?
+38	Phone number	a49_phone	Is a <u>Phone number</u> (of any person, business, organization, etc) visible in the image?
+47	Education history	a70_education_history	Is someone's <u>Education Information</u> (such as certificates, school/college they graduated from or its logo, grade transcripts, etc) visible in the image?
+55	Visited Landmark or Street Sign	a73_landmark	Is a <u>Store Name, Sign or Landmark</u> visible in the image? <u>Stores</u> include Restaurants, Businesses, etc. <u>Landmarks</u> include popular landmarks (Eiffel Tower, Taj Mahal, Pyramids, etc.) and Destinations (Airports, Train Stations, etc.) 
+60	Date/Time of Activity	a82_date_time	Is a <u>Date or Time information</u>(Year, Month, Date or Time) visible in the image?
+61	Username	a85_username	Is a <u>Username</u> (e.g., Twitter/Flickr username) visible in the image?
+62	Email address	a90_email	Is an <u>E-mail address</u> visible in the image?
+68	Face	a105_face_all	Is someone's <u>Face</u> visible in the image?
+69	Current Address	a106_address_current_all	Is <u>Location Information</u> (such as street signs, an address, GPS co-ordinates) indicating a location (country, county, city, street, etc) visible in the image?
+70	Home address	a107_address_home_all	Is a <u>Home or Postal Address</u> (either Country, City, State, Street, etc.) visible in the image?
+71	License Plate	a108_license_plate_all	Is a <u>Vehicle License Plate or Vehicle Registration Information</u> visible in the image?
+72	Person Body	a109_person_body	Is a <u>Person (of any age)</u>, including photos of them or any part of a person (such as only feet)  visible in the image?
+73	Brief or Full nudity	a110_nudity_all	Is someone <u>Fully/Briefly nude</u> (no clothes, shirtless, topless, in undergarments, bikini, etc) visible in the image?
+74	Name	a111_name_all	Is a <u>Person's Name</u> visible in the image?
