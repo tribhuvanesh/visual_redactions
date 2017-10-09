@@ -46,7 +46,7 @@ __email__ = "orekondy@mpi-inf.mpg.de"
 __status__ = "Development"
 
 
-MIN_PIXELS = 2**11   # Ignore this mask if it contains under these many pixels
+MIN_PIXELS = 25**2   # Ignore this mask if it contains under these many pixels
 
 SIZE_TO_ATTR_ID = {
     'small': [u'a106_address_current_all',
@@ -68,7 +68,6 @@ SIZE_TO_ATTR_ID = {
                  u'a30_credit_card',
                  u'a39_disability_physical',
                  u'a43_medicine',
-                 u'a70_education_history',
                  u'a7_fingerprint', ],
     'large': [u'a29_ausweis',
                  u'a31_passport',
@@ -79,6 +78,40 @@ SIZE_TO_ATTR_ID = {
                  u'a38_ticket',
               ],
 }
+
+MODE_TO_ATTR_ID = {
+    'textual': [u'a106_address_current_all',
+                 u'a107_address_home_all',
+                 u'a111_name_all',
+                 u'a24_birth_date',
+                 u'a49_phone',
+                 u'a73_landmark',
+                 u'a82_date_time',
+                 u'a85_username',
+                 u'a90_email',],
+    'visual': [u'a105_face_all',
+                 u'a108_license_plate_all',
+                 u'a109_person_body',
+                 u'a110_nudity_all',
+                 u'a18_ethnic_clothing',
+                 u'a26_handwriting',
+                 u'a39_disability_physical',
+                 u'a43_medicine',
+                 u'a7_fingerprint',
+                 u'a8_signature',],
+    'multimodal': [u'a29_ausweis',
+                 u'a30_credit_card',
+                 u'a31_passport',
+                 u'a32_drivers_license',
+                 u'a33_student_id',
+                 u'a35_mail',
+                 u'a37_receipt',
+                 u'a38_ticket',],
+}
+
+IGNORE_ATTR = [
+    'a70_education_history',
+]
 
 
 class VISPRSegEvalSimple:
@@ -138,6 +171,9 @@ le
         self.params.imgIds = sorted(np.unique(self.vispr_gt.keys()))
         self.params.attrIds = sorted(np.unique(self.vispr_gt_full['stats']['present_attr']))
         self._paramsEval = {}  # parameters for evaluation
+
+        # Remove attributes which need to be ignored
+        self.params.attrIds = [x for x in self.params.attrIds if x not in IGNORE_ATTR]
 
         pred_imgIds = np.unique([e['image_id'] for e in self.vispr_pred])
         print '# Predicted Images = ', len(pred_imgIds)
@@ -575,13 +611,22 @@ def main():
             'recall': np.mean(vispr.overall_stats['recall']),
             'iou': np.mean(vispr.overall_stats['iou']),
         }
+
         # --- Per Size
         out_dct['per_size'] = dict()
-        for _size in ['small', 'medium', 'large']:
+        for _size in SIZE_TO_ATTR_ID.keys():
             out_dct['per_size'][_size] = dict()
             for metric in ['precision', 'recall', 'iou']:
                 out_dct['per_size'][_size][metric] = np.mean([vispr.overall_stats[metric][attr_id_to_idx[attr_id]]
                                                               for attr_id in SIZE_TO_ATTR_ID[_size]])
+
+        # --- Per Mode
+        out_dct['per_mode'] = dict()
+        for _mode in MODE_TO_ATTR_ID.keys():
+            out_dct['per_mode'][_mode] = dict()
+            for metric in ['precision', 'recall', 'iou']:
+                out_dct['per_mode'][_mode][metric] = np.mean([vispr.overall_stats[metric][attr_id_to_idx[attr_id]]
+                                                              for attr_id in MODE_TO_ATTR_ID[_mode]])
 
         # --- Per Attribute
         out_dct['per_attribute'] = dict()

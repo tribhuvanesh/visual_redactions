@@ -142,7 +142,7 @@ def main():
 
             rows.append(row)
 
-            # --- Type 2: [ org_img | attr_id NOT in gt(img) ]
+            # --- Type 2: [ org_img | attr_id NOT in gt(img) ] ---------------------------------------------------------
             # Select an attribute that this image does not contain
             # Expected answer: No
 
@@ -169,7 +169,7 @@ def main():
 
             rows.append(row)
 
-            # --- Type 3: [ mod_img | mask(attr_id) in gt(img) ]
+            # --- Type 3: [ mod_img | mask(attr_id) in gt(img) ] -------------------------------------------------------
             # Expected answer: No (since attribute has been redacted)
 
             # 1. Populate row
@@ -201,7 +201,7 @@ def main():
 
             rows.append(row)
 
-            # --- Type 4: [ mod_img | mask(attr_id') in gt(img); attr_id' != attr_id]
+            # --- Type 4: [ mod_img | mask(attr_id') in gt(img); attr_id' != attr_id] ----------------------------------
             # Expected answer: Yes (since some other random attribute has been redacted)
             row = dict()
             row['image_id'] = anno_use['image_id']
@@ -236,6 +236,105 @@ def main():
             row['image_path'] = osp.join('images', 'type4', attr_id, img_filename)
 
             rows.append(row)
+
+            # --- Type 5: [ mod_img | mask(attr_id) in gt(img) ] -------------------------------------------------------
+            # Expected answer: No (since attribute has been redacted)
+            # Same as Type 3: But the region redacted is a bbox
+
+            # 1. Populate row
+            row = dict()
+            row['image_id'] = anno_use['image_id']
+            row['attr_id'] = attr_id
+            row['attr_question'] = attr_id_to_question[attr_id]
+            row['gt_attr_id'] = attr_id
+            row['gt_mask_attr_id'] = attr_id
+            row['ques_type'] = 5
+            row['exp'] = 'no'
+
+            # 2. Redact and save image
+            img_out_dir = osp.join(params['out_dir'], 'images', 'type5', attr_id)
+            if not osp.exists(img_out_dir):
+                os.makedirs(img_out_dir)
+            _, img_filename = osp.split(anno_use['image_path'])
+            image_src = osp.join(SEG_ROOT, anno_use['image_path'])
+            # Get a list of all polygons of this attribute in the image
+            polygons = []
+            for attr_entry in gt_anno[anno_use['image_id']]['attributes']:
+                if attr_entry['attr_id'] == attr_id:
+                    this_bbox = attr_entry['bbox']
+                    # Convert bbox to polygon of type [ x1 y1 x2 y2 ...]
+                    x, y, w, h = this_bbox
+                    this_polygon = [
+                        x, y,
+                        x+w, y,
+                        x+w, y+h,
+                        x, y+h,
+                        x, y
+                    ]
+                    polygons += [this_polygon, ]
+            # Redact the image
+            redacted_img = redact_img(Image.open(image_src), polygons)
+            image_dst = osp.join(img_out_dir, img_filename)
+            redacted_img.save(image_dst)
+            row['image_path'] = osp.join('images', 'type5', attr_id, img_filename)
+
+            rows.append(row)
+
+            # --- Type 6: [ mod_img | mask(attr_id) in gt(img) ] -------------------------------------------------------
+            # Expected answer: No (since attribute has been redacted)
+            # Same as Type 3: But the region redacted is coarse segmentation mask
+
+            '''
+            # 1. Populate row
+            row = dict()
+            row['image_id'] = anno_use['image_id']
+            row['attr_id'] = attr_id
+            row['attr_question'] = attr_id_to_question[attr_id]
+            row['gt_attr_id'] = attr_id
+            row['gt_mask_attr_id'] = attr_id
+            row['ques_type'] = 6
+            row['exp'] = 'no'
+
+            # 2. Redact and save image
+            img_out_dir = osp.join(params['out_dir'], 'images', 'type6', attr_id)
+            if not osp.exists(img_out_dir):
+                os.makedirs(img_out_dir)
+            _, img_filename = osp.split(anno_use['image_path'])
+            image_src = osp.join(SEG_ROOT, anno_use['image_path'])
+            # Get a list of all polygons of this attribute in the image
+            polygons = []
+            for attr_entry in gt_anno[anno_use['image_id']]['attributes']:
+                if attr_entry['attr_id'] == attr_id:
+                    this_polys = attr_entry['polygons']
+                    # Polygons can sometimes be really fine. Make this coarse by only picking a sample of vertices
+                    perc_points = 0.5   # Choose this many % of total vertices
+                    for this_poly in this_polys:
+                        this_n_vertices = len(this_poly) / 2.0
+                        if this_n_vertices <= (5/perc_points) + 1:
+                            # We need at least 5 points for a polygon. So ignore ones if under these many vertices.
+                            polygons += [this_poly, ]
+                        else:
+                            new_poly = []
+
+                            for idx in range(0, int(this_n_vertices)):
+                                # To use or not to use?
+                                if np.random.random() <= perc_points:
+                                    new_poly += [this_poly[2*idx], this_poly[(2*idx)+1]]
+
+                            # Last vertex = First vertex
+                            if (new_poly[0], new_poly[1]) != (new_poly[-2], new_poly[-1]):
+                                new_poly += [new_poly[0], new_poly[1]]
+
+                            polygons += [new_poly, ]
+
+            # Redact the image
+            redacted_img = redact_img(Image.open(image_src), polygons)
+            image_dst = osp.join(img_out_dir, img_filename)
+            redacted_img.save(image_dst)
+            row['image_path'] = osp.join('images', 'type6', attr_id, img_filename)
+
+            rows.append(row)
+            '''
 
     # --- Write CSV ----------------------------------------------------------------------------------------------------
     csv_out_path = osp.join(params['out_dir'], 'list.csv')
