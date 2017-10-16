@@ -246,8 +246,7 @@ le
         self.evalImgs = dd(list)  # per-image per-category evaluation results
         self.eval = {}  # accumulated evaluation results
 
-
-    def evaluate(self, visualize_dir=None):
+    def evaluate_old(self, visualize_dir=None):
         """
         Run per image evaluation on given images and store results (a list of dict) in self.evalImgs
         :return: None
@@ -264,6 +263,10 @@ le
 
         n_imgs = len(p.imgIds)
         n_attr = len(attr_ids)
+
+        tp = -np.ones((n_imgs, n_attr), dtype=np.float32)
+        fp = -np.ones((n_imgs, n_attr), dtype=np.float32)
+        fn = -np.ones((n_imgs, n_attr), dtype=np.float32)
 
         precision = -np.ones((n_imgs, n_attr), dtype=np.float32)
         recall    = -np.ones((n_imgs, n_attr), dtype=np.float32)
@@ -295,11 +298,6 @@ le
                 if (not gt_exists) and (not pd_exists):
                     continue
 
-                # if not gt_exists:
-                #     # FIXME - What should be done here?
-                #     # I guess, we use IoU=0.0 in such cases and ignore precision/recall
-                #     continue
-
                 # Create a GT bimask
                 gt = self._gts[(image_id, attr_id)]
                 # gt_mask, ig_mask = self.anno_to_bimask(gt, (img_w, img_h))
@@ -309,7 +307,7 @@ le
                     print image_id
                     raise
 
-                if np.sum(gt_mask > 0) < MIN_PIXELS:
+                if 0 < np.sum(gt_mask > 0) < MIN_PIXELS:
                     continue
 
                 # Create Predicted bimask
@@ -322,11 +320,18 @@ le
                     raise
 
                 # FIXME Ignoring crowd masks for now
-                _prec, _rec, _iou = compute_eval_metrics(gt_mask, pd_mask)
+                _prec, _rec, _iou, _tp, _fp, _fn = compute_eval_metrics(gt_mask, pd_mask)
 
                 precision[image_idx, attr_idx] = _prec
                 recall[image_idx, attr_idx] = _rec
                 iou[image_idx, attr_idx] = _iou
+
+                this_area = img_w * img_h   # No. of pixels in this image
+
+                # Normalized by image area
+                tp[image_idx, attr_idx] = _tp / this_area
+                fp[image_idx, attr_idx] = _fp / this_area
+                fn[image_idx, attr_idx] = _fn / this_area
 
                 if mask_stats_list is not None:
                     mask_stats_list.append((
@@ -349,6 +354,121 @@ le
         self.evalImgs['precision'] = precision
         self.evalImgs['recall'] = recall
         self.evalImgs['iou'] = iou
+
+        self.evalImgs['tp'] = tp
+        self.evalImgs['fp'] = fp
+        self.evalImgs['fn'] = fn
+
+        toc = time.time()
+        print('DONE (t={:0.2f}s).'.format(toc - tic))
+
+    def evaluate(self, visualize_dir=None):
+        """
+        Run per image evaluation on given images and store results (a list of dict) in self.evalImgs
+        :return: None
+        """
+        tic = time.time()
+        print('Running per image evaluation...')
+        p = self.params
+
+        p.imgIds = list(np.unique(p.imgIds))
+        self.params = p
+
+        self.prepare()
+        attr_ids = p.attrIds
+
+        n_imgs = len(p.imgIds)
+        n_attr = len(attr_ids)
+
+        tp = -np.ones((n_imgs, n_attr), dtype=np.float32)
+        fp = -np.ones((n_imgs, n_attr), dtype=np.float32)
+        fn = -np.ones((n_imgs, n_attr), dtype=np.float32)
+
+        precision = -np.ones((n_imgs, n_attr), dtype=np.float32)
+        recall    = -np.ones((n_imgs, n_attr), dtype=np.float32)
+        iou       = -np.ones((n_imgs, n_attr), dtype=np.float32)
+
+        if visualize_dir and not osp.exists(visualize_dir):
+            print 'Path {} does not exist. Creating it...'.format(visualize_dir)
+            os.mkdir(visualize_dir)
+
+        for image_idx, image_id in enumerate(p.imgIds):
+            sys.stdout.write("Processing %d/%d (%.2f%% done) \r" % (image_idx, n_imgs,
+                                                                    (image_idx * 100.0) / n_imgs))
+            sys.stdout.flush()
+
+            img_w, img_h = self.vispr_gt[image_id]['image_width'], self.vispr_gt[image_id]['image_height']
+            img_area = float(img_w * img_h)  # No. of pixels in this image
+
+            for attr_idx, attr_id in enumerate(attr_ids):
+                key = (image_id, attr_id)
+                gt_exists = key in self._gts
+                pd_exists = key in self._pds
+
+                if (not gt_exists) and (not pd_exists):
+                    continue
+
+                # GT RLE
+                gt = self._gts[(image_id, attr_id)]
+                gt_rle = self.dets_to_rle(gt, (img_w, img_h))
+                gt_rle = None if gt_rle is None else [gt_rle, ]
+
+                if gt_rle is not None and mask_utils.area(gt_rle) < MIN_PIXELS:
+                    continue
+
+                # Predicted RLE
+                pd = self._pds[(image_id, attr_id)]
+                pd_rle = self.dets_to_rle(pd, (img_w, img_h))
+                pd_rle = None if pd_rle is None else [pd_rle, ]
+
+                if gt_rle is None:
+                    n_ones = mask_utils.area(pd_rle)
+                    n_zeros = img_area - n_ones
+                    _tp, _fp, _tn, _fn = 0, n_ones, n_zeros, 0
+                elif pd_rle is None:
+                    n_ones = mask_utils.area(gt_rle)
+                    n_zeros = img_area - n_ones
+                    _tp, _fp, _tn, _fn = 0, 0, n_zeros, n_ones
+                else:
+                    # FIXME Ignoring crowd masks for now
+                    # _tp, _fp, _tn, _fn = mask_utils.get_metrics(gt_rle, pd_rle)
+                    gt_mask = mask_utils.decode(gt_rle)
+                    pd_mask = mask_utils.decode(pd_rle)
+                    _, _, _, _tp, _fp, _fn = compute_eval_metrics(gt_mask, pd_mask)
+                    del gt_mask
+                    del pd_mask
+
+                if (_tp + _fp) > 0.0:
+                    _prec = float(_tp) / (_tp + _fp)
+                else:
+                    _prec = 0.0
+
+                if (_tp + _fn) > 0.0:
+                    _rec = float(_tp) / (_tp + _fn)
+                else:
+                    _rec = 0.0
+
+                if (_tp + _fp + _fn) > 0.0:
+                    _iou = float(_tp) / (_tp + _fp + _fn)
+                else:
+                    _iou = 0.0
+
+                precision[image_idx, attr_idx] = _prec
+                recall[image_idx, attr_idx] = _rec
+                iou[image_idx, attr_idx] = _iou
+
+                # Normalized by image area
+                tp[image_idx, attr_idx] = _tp / img_area
+                fp[image_idx, attr_idx] = _fp / img_area
+                fn[image_idx, attr_idx] = _fn / img_area
+
+        self.evalImgs['precision'] = precision
+        self.evalImgs['recall'] = recall
+        self.evalImgs['iou'] = iou
+
+        self.evalImgs['tp'] = tp
+        self.evalImgs['fp'] = fp
+        self.evalImgs['fn'] = fn
 
         toc = time.time()
         print('DONE (t={:0.2f}s).'.format(toc - tic))
@@ -467,6 +587,27 @@ le
 
         return norm_bimask, norm_ig_bimask
 
+    def dets_to_rle(self, dets, img_size):
+        org_w, org_h = img_size
+
+        rle_list = []
+        crowd_rle_list = []
+        for det in dets:
+            rle = det['segmentation']
+            if rle['size'] != [org_h, org_w]:
+                # FIXME Hack
+                rle['size'] = rle['size'][::-1]
+            assert rle['size'] == [org_h, org_w], "{} != {}".format(rle['size'], [org_h, org_w])
+            if det.get('ignore', False):
+                crowd_rle_list.append(rle)
+            else:
+                rle_list.append(rle)
+
+        if len(rle_list) > 0:
+            return mask_utils.merge(rle_list)
+        else:
+            return None
+
     def anno_to_bimask_org(self, dets, img_size):
         """
         Given a list of detections, combines them into a single (non-normalized) binary mask
@@ -511,18 +652,42 @@ le
         recall = self.evalImgs['recall']
         iou = self.evalImgs['iou']
 
+        tp = self.evalImgs['tp']  # N x K matrix
+        fp = self.evalImgs['fp']
+        fn = self.evalImgs['fn']
+
         # Calculate per-class stats
         overall_precision = np.zeros(len(p.attrIds))
         overall_recall = np.zeros(len(p.attrIds))
         overall_iou = np.zeros(len(p.attrIds))
 
+        overall_tp = np.zeros(len(p.attrIds))
+        overall_fp = np.zeros(len(p.attrIds))
+        overall_fn = np.zeros(len(p.attrIds))
+
         for attr_idx, attr_id in enumerate(p.attrIds):
-            m = precision[:, attr_idx]
-            overall_precision[attr_idx] = np.mean(m[m > -1])
-            m = recall[:, attr_idx]
-            overall_recall[attr_idx] = np.mean(m[m > -1])
-            m = iou[:, attr_idx]
-            overall_iou[attr_idx] = np.mean(m[m > -1])
+            # Precision, Recall, IoU averaged per image
+            # m = precision[:, attr_idx]
+            # overall_precision[attr_idx] = np.mean(m[m > -1])
+            # m = recall[:, attr_idx]
+            # overall_recall[attr_idx] = np.mean(m[m > -1])
+            # m = iou[:, attr_idx]
+            # overall_iou[attr_idx] = np.mean(m[m > -1])
+
+            # TP, FP, FN computed per image, then averaged
+            m = tp[:, attr_idx]
+            overall_tp[attr_idx] = np.mean(m[m > -1])
+            m = fp[:, attr_idx]
+            overall_fp[attr_idx] = np.mean(m[m > -1])
+            m = fn[:, attr_idx]
+            overall_fn[attr_idx] = np.mean(m[m > -1])
+
+            if (overall_tp[attr_idx] + overall_fp[attr_idx]) > 0:
+                overall_precision[attr_idx] = overall_tp[attr_idx] / (overall_tp[attr_idx] + overall_fp[attr_idx])
+            else:
+                overall_precision[attr_idx] = 0.0
+            overall_recall[attr_idx] = overall_tp[attr_idx] / (overall_tp[attr_idx] + overall_fn[attr_idx])
+            overall_iou[attr_idx] = overall_tp[attr_idx] / (overall_tp[attr_idx] + overall_fp[attr_idx] + overall_fn[attr_idx])
 
         self.overall_stats['precision'] = overall_precision
         self.overall_stats['recall'] = overall_recall
