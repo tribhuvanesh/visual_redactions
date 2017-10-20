@@ -17,7 +17,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from PIL import Image, ImageDraw, ImageFilter
-from scipy.misc import imread
+
+from skimage.segmentation import slic, mark_boundaries
+
+from scipy.misc import imread, imresize
 
 from pycocotools import mask as mask_utils
 
@@ -38,10 +41,10 @@ def resize_min_side(pil_img, mins_len):
     w, h = pil_img.size
     if w < h:
         new_w = mins_len
-        new_h = int(np.round(h * (new_w / float(w))))   # Scale height to same aspect ratio
+        new_h = int(np.round(h * (new_w / float(w))))  # Scale height to same aspect ratio
     else:
         new_h = mins_len
-        new_w = int(np.round(w * (new_h / float(h))))   # Scale height to same aspect ratio
+        new_w = int(np.round(w * (new_h / float(h))))  # Scale height to same aspect ratio
     return pil_img.resize((new_w, new_h))
 
 
@@ -203,3 +206,154 @@ def rgba_to_rgb(image, color=(255, 255, 255)):
     background = Image.new('RGB', image.size, color)
     background.paste(image, mask=image.split()[3])  # 3 is the alpha channel
     return background
+
+
+def seg_to_adj(X):
+    """
+    Convert a matrix of labels to an adjacency matrix
+    https://stackoverflow.com/questions/26486898/matrix-of-labels-to-adjacency-matrix
+    :param X: Matrix of labels (like ones produced by SLIC)
+    :return: Adjacency matrix
+    """
+    n = len(np.unique(X))
+    G = np.zeros((n, n), dtype=np.int)
+
+    # left-right pairs
+    G[X[:, :-1], X[:, 1:]] = 1
+    # right-left pairs
+    G[X[:, 1:], X[:, :-1]] = 1
+    # top-bottom pairs
+    G[X[:-1, :], X[1:, :]] = 1
+    # bottom-top pairs
+    G[X[1:, :], X[:-1, :]] = 1
+
+    return G
+
+
+def dilate_mask(_seg, _mask, c):
+    """
+    Dilates bimask by a factor of c given SLIC label assignment mantrix _seg
+    :param _seg: N x M superpixel assignment matrix
+    :param _mask:  N x M binary mask
+    :param c: dilation factor (>= 1.0)
+    :return: N x M dilated binary mask
+    """
+    if c < 1.0:
+        raise ValueError('c needs to be >=1.0')
+
+    _mask = _mask.copy()
+
+    cur_pixels = np.sum(_mask)
+    target_pixels = min(c * cur_pixels, _mask.size)
+
+    vrts_all = set(np.unique(_seg))
+    vrts_in_mask = set(np.unique(_mask * _seg))  # in-vert
+
+    # First add all segments containing seed pixels with >25% overlap
+    # overlap_vrts = np.unique(segments * new_bimask)
+    for _v in list(vrts_in_mask):
+        # Add this vertex only if it overlaps > 25%
+        # Pixels in this superpixel
+        n_sup_pix = np.sum(_seg == _v)
+        # Pixels in overlap
+        n_overlap = np.sum(np.logical_and(_mask == 1, _seg == _v)).astype(np.float32)
+
+        if n_overlap / n_sup_pix > 0.25:
+            _mask[np.where(_seg == _v)] = 1.0
+        else:
+            vrts_in_mask.remove(_v)
+
+    cur_pixels = np.sum(_mask)
+    A = seg_to_adj(_seg)
+    while cur_pixels < target_pixels:
+        # for _i in range(2):
+        vrts_outside_mask = vrts_all - vrts_in_mask  # out-vert
+
+        # Choose a single vrt from vrts_outside_mask to add to set
+        # For each out-vert get a count of how many edges it has to an in-vert
+        candidates = []  # List of (_v, _ne) where _ne = # edges with an in-vert
+        for _v in vrts_outside_mask:
+            adj_vrts = set(np.where(A[_v] > 0)[0])
+            _ne = len(vrts_in_mask & adj_vrts)
+            candidates.append((_v, _ne))
+
+        # Choose the best candidate
+        candidates = sorted(candidates, key=lambda x: -x[1])
+        best_v = candidates[0][0]
+        vrts_in_mask.add(best_v)
+
+        # Add this vertex to mask
+        _mask[np.where(_seg == best_v)] = 1.0
+        cur_pixels = np.sum(_mask)
+
+    return _mask
+
+
+def contract_mask(_seg, _mask, c):
+    """
+    Contracts bimask by a factor of c given SLIC label assignment mantrix _seg.
+    This is simply an inverse dilation problem. So, we perform dilation on an inverted mask.
+    :param _seg: N x M superpixel assignment matrix
+    :param _mask:  N x M binary mask
+    :param c: dilation factor (>= 1.0)
+    :return: N x M dilated binary mask
+    """
+    if c > 1.0:
+        raise ValueError('c needs to be <=1.0')
+
+    cur_pixels = np.sum(_mask)
+    target_pixels = min(c * cur_pixels, _mask.size)
+
+    img_area = _mask.size
+
+    # What is c in terms of #0s in the mask?
+    inv_mask = (_mask == 0).astype(int)
+    new_c = (img_area - target_pixels) / float(np.sum(inv_mask))
+
+    new_inv_mask = dilate_mask(_seg, inv_mask, new_c)
+    new_mask = (new_inv_mask == 0).astype(int)
+
+    return new_mask
+
+
+def scale_mask(im, bimask, c):
+    """
+    Scale bimask for image im by a factor c
+    :param im:
+    :param bimask:
+    :param c:
+    :return:
+    """
+    # Resize image so that SLIC is faster
+    # Resize image to a lower size
+    org_w, org_h = im.size
+    max_len = 600.
+
+    if org_w > org_h:
+        new_w = max_len
+        new_h = (new_w / org_w) * org_h
+    else:
+        new_h = max_len
+        new_w = (new_h / org_h) * org_w
+    new_w, new_h = int(new_w), int(new_h)
+
+    new_im = im.resize((new_w, new_h))
+    new_bimask = imresize(bimask, (new_h, new_w))
+
+    segments = slic(new_im, n_segments=200, slic_zero=True)
+
+    if c > 1.:
+        scaled_mask = dilate_mask(segments, new_bimask, c)
+    elif c < 1.:
+        scaled_mask = contract_mask(segments, new_bimask, c)
+    else:
+        scaled_mask = new_bimask
+
+    # Rescale this mask to original size
+    scaled_mask_highres = imresize(scaled_mask, (org_h, org_w), interp='nearest')
+
+    del new_im
+    del new_bimask
+    del scaled_mask
+
+    return scaled_mask_highres

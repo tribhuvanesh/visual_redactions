@@ -31,9 +31,25 @@ EXTRA_ANNO_PATH = osp.join(SEG_ROOT, 'annotations-extra')
 
 
 def bb_to_verts(bb):
+    '''
+    Convert Google BBox to convert to [ [x0, y0], [x1, y1], [x2, y2], .., [x0, y0]]
+    :param bb:
+    :return:
+    '''
     vrts_dct = bb['vertices']  # List of [ {x:__, y:__}, ... ]
     vrts = [[d.get('x', 0), d.get('y', 0)] for d in vrts_dct]  # Convert to [ [x1, y1], [x2, y2], ..]
     vrts.append(vrts[0])  # Reconnect to first vertex
+    return np.ndarray.flatten(np.asarray(vrts))
+
+
+def bb_to_bbox(bb):
+    '''
+    Convert Google BBox to convert to COCO bbox (x, y, w, h) where (x,y) is top-left
+    :param bb:
+    :return:
+    '''
+    vrts_dct = bb['vertices']  # List of [ {x:__, y:__}, ... ]
+    vrts = [[d.get('x', 0), d.get('y', 0)] for d in vrts_dct]  # Convert to [ [x1, y1], [x2, y2], ..]
     return np.ndarray.flatten(np.asarray(vrts))
 
 
