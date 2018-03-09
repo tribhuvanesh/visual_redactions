@@ -21,7 +21,7 @@ from scipy.misc import imread
 
 from privacy_filters.tools.common.utils import get_image_filename_index, clean_via_annotations
 from privacy_filters.tools.common.image_utils import resize_min_side
-from privacy_filters.tools.evaltools.evaltools import get_mask, via_regions_to_polygons, compute_eval_metrics, visualize_errors, resize_polygon
+from privacy_filters.tools.evaltools.evaltools import get_mask, via_regions_to_polygons, compute_eval_metrics, visualize_errors, resize_polygons
 
 from privacy_filters.tools.common. timer import Timer
 
@@ -123,7 +123,7 @@ def main():
             pred_mask = get_mask(w, h, pred_polygons)
         # print '[pred-get_mask] w={}, h={}, t={:.2f}s'.format(w, h, t.secs)
 
-        this_precision, this_recall, this_iou = compute_eval_metrics(gt_mask, pred_mask)
+        this_precision, this_recall, this_iou, tp, fp, fn = compute_eval_metrics(gt_mask, pred_mask)
 
         if len(gt_regions) > 0 and len(pred_regions) > 0:
             precision_list.append(this_precision)

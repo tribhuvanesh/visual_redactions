@@ -1,7 +1,9 @@
 #!/usr/bin/python
-"""This is a short description.
+"""Given an annotation file, produce visualization of labels.
 
-Replace this with a more detailed description of what this file contains.
+Given an annotation file, produce these visualization images (one per attribute present in the image):
+  a. segmentation mask
+  b. instance mask
 """
 import json
 import time
@@ -25,8 +27,22 @@ __email__ = "orekondy@mpi-inf.mpg.de"
 __status__ = "Development"
 
 
+def create_individual_visuals(anno_filepath, output_dir):
+    with open(anno_filepath) as jf:
+        _annos = json.load(jf)
+    annos = _annos['annotations']
+
+    for file_id, entry in annos:
+        pass
+
+
 def main():
-    pass
+    parser = argparse.ArgumentParser()
+    parser.add_argument("annotation_filepath", type=str, help="Path to Annotation file")
+    parser.add_argument("output_dir", type=str, help="Directory to place output images")
+    args = parser.parse_args()
+
+    create_individual_visuals(args.annotation_filepath, args.output_dir)
 
 
 if __name__ == '__main__':

@@ -12,6 +12,7 @@ import argparse
 import os
 import os.path as osp
 import shutil
+import datetime
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -75,18 +76,23 @@ def main():
     out_dct = dict()
     thesh_to_vispr = dict(tau_and_vispr)   # Sort by thresh val
     out_dct['thresholds'] = thresh_vals.tolist()
+    out_dct['gt_file'] = params['gt_file']
+    out_dct['pred_file'] = params['pred_file']
+    out_dct['created_at'] = str(datetime.datetime.now())
+
     # --- Overall stats
     out_dct['overall'] = {
         'precision': [np.mean(thesh_to_vispr[tau].overall_stats['precision']) for tau in thresh_vals],
         'recall': [np.mean(thesh_to_vispr[tau].overall_stats['recall']) for tau in thresh_vals],
         'iou': [np.mean(thesh_to_vispr[tau].overall_stats['iou']) for tau in thresh_vals],
+        'positives': [np.mean(thesh_to_vispr[tau].overall_stats['positives']) for tau in thresh_vals],
     }
 
     # --- Per Mode
     out_dct['per_mode'] = dict()
     for _mode in MODE_TO_ATTR_ID.keys():
         out_dct['per_mode'][_mode] = dict()
-        for metric in ['precision', 'recall', 'iou']:
+        for metric in ['precision', 'recall', 'iou', 'positives']:
             out_dct['per_mode'][_mode][metric] = [np.mean([thesh_to_vispr[tau].overall_stats[metric][attr_id_to_idx[attr_id]]
                                                           for attr_id in MODE_TO_ATTR_ID[_mode]]) for tau in thresh_vals]
 
@@ -94,7 +100,7 @@ def main():
     out_dct['per_attribute'] = dict()
     for attr_id in attr_ids:
         out_dct['per_attribute'][attr_id] = dict()
-        for metric in ['precision', 'recall', 'iou']:
+        for metric in ['precision', 'recall', 'iou', 'positives']:
             out_dct['per_attribute'][attr_id][metric] = [thesh_to_vispr[tau].overall_stats[metric][attr_id_to_idx[attr_id]]
                                                          for tau in thresh_vals]
 

@@ -32,7 +32,7 @@ EXTRA_ANNO_PATH = osp.join(SEG_ROOT, 'annotations-extra')
 
 def bb_to_verts(bb):
     '''
-    Convert Google BBox to convert to [ [x0, y0], [x1, y1], [x2, y2], .., [x0, y0]]
+    Convert Google BBox to convert to [ x0, y0,  x1, y1,  x2, y2, ..,  x0, y0 ]
     :param bb:
     :return:
     '''

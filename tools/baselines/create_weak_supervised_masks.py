@@ -146,12 +146,12 @@ def main():
                 heat_maps[i, :, :] = np.sum(CAM_scores * w[:, None, None], axis=0)
 
             # This is a Cx41x41 mask (C=68)
-            localization_masks = heat_maps > CAM_THRESH * np.max(heat_maps)
+            # localization_masks = heat_maps > CAM_THRESH * np.max(heat_maps)
+            localization_masks = heat_maps
             attr_probs = probs[idx]
 
             image_id_to_info[image_id] = (localization_masks, attr_probs)
 
-    # Save Saliency Masks ----------------------------------------------------------------------------------------------
     pickle.dump(image_id_to_info, open(params['outfile'], 'w'))
 
 

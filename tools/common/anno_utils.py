@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 
 from PIL import Image
 from scipy.misc import imread
+from scipy import ndimage
 
 import pycocotools.mask as mask
 
@@ -112,3 +113,30 @@ class AnnoEncoder(json.JSONEncoder):
             del(dct['next_instance_id'])   # Because this is unnecessary now
             return dct
         return json.JSONEncoder.default(self, obj)
+
+
+def dilate_rle(rle, c):
+    # https://docs.scipy.org/doc/scipy-0.14.0/reference/generated/scipy.ndimage.morphology.binary_dilation.html
+    # https://en.wikipedia.org/wiki/Dilation_%28morphology%29
+
+    bimask = mask.decode(rle)
+    new_bimask = np.zeros_like(bimask)
+
+    cur_count = np.sum(bimask)
+    req_count = min(c * cur_count, bimask.size)
+
+    # Superimpose this structure at every 1 in the binary mask
+    # E = np.ones((5, 5))
+    max_iter = 100
+
+    for _i in range(max_iter):
+        ndimage.morphology.binary_dilation(bimask, output=new_bimask)
+        if np.sum(new_bimask) > req_count:
+            break
+
+    new_rle = mask.encode(new_bimask)
+
+    del bimask
+    del new_bimask
+
+    return new_rle

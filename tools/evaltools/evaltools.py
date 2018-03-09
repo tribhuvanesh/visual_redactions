@@ -112,20 +112,19 @@ def compute_eval_metrics(gt_mask, pred_mask):
     :return:
     """
     assert (gt_mask.size == pred_mask.size)
+    tp = float(np.sum(np.logical_and(pred_mask == 1, gt_mask == 1)))
+    fp = float(np.sum(np.logical_and(pred_mask == 1, gt_mask == 0)))
+    fn = float(np.sum(np.logical_and(pred_mask == 0, gt_mask == 1)))
 
     if np.sum(gt_mask) == 0 or np.sum(pred_mask) == 0:
         # Handle the special case where only a single mask is annotated and the other hasn't been
         prec, rec, iou = 0.0, 0.0, 0.0
     else:
-        tp = float(np.sum(np.logical_and(pred_mask == 1, gt_mask == 1)))
-        fp = float(np.sum(np.logical_and(pred_mask == 1, gt_mask == 0)))
-        fn = float(np.sum(np.logical_and(pred_mask == 0, gt_mask == 1)))
-
         prec = tp / (tp + fp)
         rec = tp / (tp + fn)
         iou = tp / (tp + fn + fp)
 
-    return prec, rec, iou
+    return prec, rec, iou, tp, fp, fn
 
 
 def convert_mask_to_img(mask, hot_color):

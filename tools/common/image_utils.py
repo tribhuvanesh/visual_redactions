@@ -120,6 +120,15 @@ def redact_img(pil_img, segmentation, fill='black', outline='black'):
         return im
 
 
+def redact_img_mask(pil_img, bimask):
+    imarr = np.asarray(pil_img).copy()
+    mask3d = np.tile(bimask[:, :, None], 3)
+    imarr[np.where(bimask == 1)] = 0
+    im = Image.fromarray(imarr)
+    del mask3d
+    return im
+
+
 def blur_region(org_im, poly, radius=2):
     im = org_im.copy()
 
@@ -279,7 +288,11 @@ def dilate_mask(_seg, _mask, c):
 
         # Choose the best candidate
         candidates = sorted(candidates, key=lambda x: -x[1])
-        best_v = candidates[0][0]
+        max_ne = np.max(map(lambda x: x[1], candidates))  # What's the highest no. of edges for any node?
+        candidates = filter(lambda x: x[1] == max_ne, candidates)  # Filter vertices with these many edges
+        candidates_v = [x[0] for x in candidates]
+
+        best_v = np.random.choice(candidates_v)
         vrts_in_mask.add(best_v)
 
         # Add this vertex to mask
@@ -302,21 +315,40 @@ def contract_mask(_seg, _mask, c):
         raise ValueError('c needs to be <=1.0')
 
     cur_pixels = np.sum(_mask)
-    target_pixels = min(c * cur_pixels, _mask.size)
+    target_pixels = c * cur_pixels
 
-    img_area = _mask.size
+    img_area = float(_mask.size)
 
     # What is c in terms of #0s in the mask?
     inv_mask = (_mask == 0).astype(int)
     new_c = (img_area - target_pixels) / float(np.sum(inv_mask))
+    # print c, new_c, np.sum(_mask), np.sum(inv_mask)
 
     new_inv_mask = dilate_mask(_seg, inv_mask, new_c)
-    new_mask = (new_inv_mask == 0).astype(int)
+    new_mask = (new_inv_mask == 0).astype(np.uint8)
+
+    # print c, new_c, np.sum(_mask) / img_area, np.sum(new_mask) / img_area, np.unique(new_mask)
 
     return new_mask
 
 
-def scale_mask(im, bimask, c):
+def resize_bimask(bimask, max_len=1000.):
+    org_h, org_w = bimask.shape
+    max_len = float(max_len)
+
+    if org_w > org_h:
+        new_w = max_len
+        new_h = (new_w / org_w) * org_h
+    else:
+        new_h = max_len
+        new_w = (new_h / org_h) * org_w
+    new_w, new_h = int(new_w), int(new_h)
+
+    new_bimask = imresize(bimask, (new_h, new_w)).astype(bimask.dtype)
+    return new_bimask
+
+
+def scale_mask(im, bimask, c, n_segments=200, smoothen=True):
     """
     Scale bimask for image im by a factor c
     :param im:
@@ -327,7 +359,7 @@ def scale_mask(im, bimask, c):
     # Resize image so that SLIC is faster
     # Resize image to a lower size
     org_w, org_h = im.size
-    max_len = 600.
+    max_len = 1000.
 
     if org_w > org_h:
         new_w = max_len
@@ -340,7 +372,7 @@ def scale_mask(im, bimask, c):
     new_im = im.resize((new_w, new_h))
     new_bimask = imresize(bimask, (new_h, new_w))
 
-    segments = slic(new_im, n_segments=200, slic_zero=True)
+    segments = slic(new_im, n_segments=n_segments, slic_zero=True)
 
     if c > 1.:
         scaled_mask = dilate_mask(segments, new_bimask, c)
@@ -348,6 +380,13 @@ def scale_mask(im, bimask, c):
         scaled_mask = contract_mask(segments, new_bimask, c)
     else:
         scaled_mask = new_bimask
+
+    if smoothen:
+        smooth_bimask = Image.fromarray(scaled_mask.astype('uint8') * 255)
+        for i in range(10):
+            smooth_bimask = smooth_bimask.filter(ImageFilter.GaussianBlur)
+        scaled_mask = np.asarray(smooth_bimask) > 128
+        scaled_mask = scaled_mask.astype('uint8')
 
     # Rescale this mask to original size
     scaled_mask_highres = imresize(scaled_mask, (org_h, org_w), interp='nearest')

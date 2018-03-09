@@ -57,20 +57,17 @@ SIZE_TO_ATTR_ID = {
                  u'a49_phone',
                  u'a73_landmark',
                  u'a82_date_time',
-                 u'a85_username',
                  u'a8_signature',
                  u'a90_email',],
     'medium': [u'a105_face_all',
                  u'a109_person_body',
                  u'a110_nudity_all',
-                 u'a18_ethnic_clothing',
                  u'a26_handwriting',
                  u'a30_credit_card',
                  u'a39_disability_physical',
                  u'a43_medicine',
                  u'a7_fingerprint', ],
-    'large': [u'a29_ausweis',
-                 u'a31_passport',
+    'large': [u'a31_passport',
                  u'a32_drivers_license',
                  u'a33_student_id',
                  u'a35_mail',
@@ -87,20 +84,17 @@ MODE_TO_ATTR_ID = {
                  u'a49_phone',
                  u'a73_landmark',
                  u'a82_date_time',
-                 u'a85_username',
                  u'a90_email',],
     'visual': [u'a105_face_all',
                  u'a108_license_plate_all',
                  u'a109_person_body',
                  u'a110_nudity_all',
-                 u'a18_ethnic_clothing',
                  u'a26_handwriting',
                  u'a39_disability_physical',
                  u'a43_medicine',
                  u'a7_fingerprint',
                  u'a8_signature',],
-    'multimodal': [u'a29_ausweis',
-                 u'a30_credit_card',
+    'multimodal': [u'a30_credit_card',
                  u'a31_passport',
                  u'a32_drivers_license',
                  u'a33_student_id',
@@ -111,7 +105,21 @@ MODE_TO_ATTR_ID = {
 
 IGNORE_ATTR = [
     'a70_education_history',
+    'a29_ausweis',
+    'a18_ethnic_clothing',
+    'a85_username',
 ]
+
+
+# Utility
+def pr2util(pr):
+    w1 = 0.83770739
+    w2 = 0.26647363
+    # Linear Model
+    utility = 1.0 - ((w1 * pr) + (w2 * np.square(pr)))
+    # Clip to [0, 1]
+    utility = np.minimum(1.0, np.maximum(0.0, utility))
+    return utility
 
 
 class VISPRSegEvalSimple:
@@ -151,7 +159,6 @@ class VISPRSegEvalSimple:
             'segmentation': RLE,
             'score': float,
         }
-le
     """
     def __init__(self, gt_path, pred_path):
         self.gt_path = gt_path
@@ -246,122 +253,6 @@ le
         self.evalImgs = dd(list)  # per-image per-category evaluation results
         self.eval = {}  # accumulated evaluation results
 
-    def evaluate_old(self, visualize_dir=None):
-        """
-        Run per image evaluation on given images and store results (a list of dict) in self.evalImgs
-        :return: None
-        """
-        tic = time.time()
-        print('Running per image evaluation...')
-        p = self.params
-
-        p.imgIds = list(np.unique(p.imgIds))
-        self.params = p
-
-        self.prepare()
-        attr_ids = p.attrIds
-
-        n_imgs = len(p.imgIds)
-        n_attr = len(attr_ids)
-
-        tp = -np.ones((n_imgs, n_attr), dtype=np.float32)
-        fp = -np.ones((n_imgs, n_attr), dtype=np.float32)
-        fn = -np.ones((n_imgs, n_attr), dtype=np.float32)
-
-        precision = -np.ones((n_imgs, n_attr), dtype=np.float32)
-        recall    = -np.ones((n_imgs, n_attr), dtype=np.float32)
-        iou       = -np.ones((n_imgs, n_attr), dtype=np.float32)
-
-        if visualize_dir and not osp.exists(visualize_dir):
-            print 'Path {} does not exist. Creating it...'.format(visualize_dir)
-            os.mkdir(visualize_dir)
-
-        for image_idx, image_id in enumerate(p.imgIds):
-            sys.stdout.write("Processing %d/%d (%.2f%% done) \r" % (image_idx, n_imgs,
-                                                                    (image_idx * 100.0) / n_imgs))
-            sys.stdout.flush()
-
-            img_w, img_h = self.vispr_gt[image_id]['image_width'], self.vispr_gt[image_id]['image_height']
-
-            if visualize_dir is not None:
-                mask_stats_list = []  # (attr_id, gt_mask, pred_mask, prec, rec, iou)
-            else:
-                mask_stats_list = None
-
-            vis_img = False
-
-            for attr_idx, attr_id in enumerate(attr_ids):
-                key = (image_id, attr_id)
-                gt_exists = key in self._gts
-                pd_exists = key in self._pds
-
-                if (not gt_exists) and (not pd_exists):
-                    continue
-
-                # Create a GT bimask
-                gt = self._gts[(image_id, attr_id)]
-                # gt_mask, ig_mask = self.anno_to_bimask(gt, (img_w, img_h))
-                try:
-                    gt_mask, ig_mask = self.anno_to_bimask_org(gt, (img_w, img_h))
-                except AssertionError:
-                    print image_id
-                    raise
-
-                if 0 < np.sum(gt_mask > 0) < MIN_PIXELS:
-                    continue
-
-                # Create Predicted bimask
-                pd = self._pds[(image_id, attr_id)]
-                # pd_mask, _ = self.anno_to_bimask(pd, (img_w, img_h))
-                try:
-                    pd_mask, _ = self.anno_to_bimask_org(pd, (img_w, img_h))
-                except AssertionError:
-                    print image_id
-                    raise
-
-                # FIXME Ignoring crowd masks for now
-                _prec, _rec, _iou, _tp, _fp, _fn = compute_eval_metrics(gt_mask, pd_mask)
-
-                precision[image_idx, attr_idx] = _prec
-                recall[image_idx, attr_idx] = _rec
-                iou[image_idx, attr_idx] = _iou
-
-                this_area = img_w * img_h   # No. of pixels in this image
-
-                # Normalized by image area
-                tp[image_idx, attr_idx] = _tp / this_area
-                fp[image_idx, attr_idx] = _fp / this_area
-                fn[image_idx, attr_idx] = _fn / this_area
-
-                if mask_stats_list is not None:
-                    mask_stats_list.append((
-                        attr_id,
-                        gt_mask.copy(), pd_mask.copy(),
-                        _prec, _rec, _iou
-                    ))
-
-                del gt_mask
-                del pd_mask
-
-                if attr_id in SIZE_TO_ATTR_ID['small']:
-                    vis_img = True
-
-            if mask_stats_list is not None and vis_img:
-                vis_out_path = osp.join(visualize_dir, image_id + '.jpg')
-                self.visualize_img(mask_stats_list, image_id, vis_out_path)
-                del mask_stats_list
-
-        self.evalImgs['precision'] = precision
-        self.evalImgs['recall'] = recall
-        self.evalImgs['iou'] = iou
-
-        self.evalImgs['tp'] = tp
-        self.evalImgs['fp'] = fp
-        self.evalImgs['fn'] = fn
-
-        toc = time.time()
-        print('DONE (t={:0.2f}s).'.format(toc - tic))
-
     def evaluate(self, visualize_dir=None):
         """
         Run per image evaluation on given images and store results (a list of dict) in self.evalImgs
@@ -388,9 +279,20 @@ le
         recall    = -np.ones((n_imgs, n_attr), dtype=np.float32)
         iou       = -np.ones((n_imgs, n_attr), dtype=np.float32)
 
-        if visualize_dir and not osp.exists(visualize_dir):
-            print 'Path {} does not exist. Creating it...'.format(visualize_dir)
-            os.mkdir(visualize_dir)
+        n_masks_ignored = 0
+        n_masks_used = 0
+
+        if visualize_dir:
+            # Create two directories -
+            # a. one for summary (all gt/prediction masks)
+            # b. one for per mask (i.e., for each gt, prediction pair, create an image)
+            visualize_summary_dir = osp.join(visualize_dir, 'summary')
+            visualize_attr_dir = osp.join(visualize_dir, 'per_attr')
+
+            for _d in [visualize_summary_dir, visualize_attr_dir]:
+                if not osp.exists(_d):
+                    print 'Path {} does not exist. Creating it...'.format(_d)
+                    os.makedirs(_d)
 
         for image_idx, image_id in enumerate(p.imgIds):
             sys.stdout.write("Processing %d/%d (%.2f%% done) \r" % (image_idx, n_imgs,
@@ -399,6 +301,13 @@ le
 
             img_w, img_h = self.vispr_gt[image_id]['image_width'], self.vispr_gt[image_id]['image_height']
             img_area = float(img_w * img_h)  # No. of pixels in this image
+
+            if visualize_dir is not None:
+                mask_stats_list = []  # (attr_id, gt_mask, pred_mask, prec, rec, iou)
+            else:
+                mask_stats_list = None
+
+            vis_img = False
 
             for attr_idx, attr_id in enumerate(attr_ids):
                 key = (image_id, attr_id)
@@ -411,15 +320,18 @@ le
                 # GT RLE
                 gt = self._gts[(image_id, attr_id)]
                 gt_rle = self.dets_to_rle(gt, (img_w, img_h))
-                gt_rle = None if gt_rle is None else [gt_rle, ]
+                # gt_rle = None if gt_rle is None else [gt_rle, ]
 
                 if gt_rle is not None and mask_utils.area(gt_rle) < MIN_PIXELS:
+                    n_masks_ignored += 1
                     continue
+                elif gt_rle is not None:
+                    n_masks_used += 1
 
                 # Predicted RLE
                 pd = self._pds[(image_id, attr_id)]
                 pd_rle = self.dets_to_rle(pd, (img_w, img_h))
-                pd_rle = None if pd_rle is None else [pd_rle, ]
+                # pd_rle = None if pd_rle is None else [pd_rle, ]
 
                 if gt_rle is None:
                     n_ones = mask_utils.area(pd_rle)
@@ -438,20 +350,31 @@ le
                     del gt_mask
                     del pd_mask
 
+                # Precision
                 if (_tp + _fp) > 0.0:
                     _prec = float(_tp) / (_tp + _fp)
                 else:
-                    _prec = 0.0
+                    _prec = np.nan
 
+                # Recall
                 if (_tp + _fn) > 0.0:
                     _rec = float(_tp) / (_tp + _fn)
                 else:
-                    _rec = 0.0
+                    _rec = np.nan
 
+                # IoU
                 if (_tp + _fp + _fn) > 0.0:
                     _iou = float(_tp) / (_tp + _fp + _fn)
                 else:
-                    _iou = 0.0
+                    _iou = np.nan
+
+                if (_tp + _fp) > 0.0:
+                    # % of image redacted
+                    _pr = (_tp + _fp) / img_area
+                    _util = pr2util(_pr)
+                else:
+                    _util = np.nan
+
 
                 precision[image_idx, attr_idx] = _prec
                 recall[image_idx, attr_idx] = _rec
@@ -462,6 +385,29 @@ le
                 fp[image_idx, attr_idx] = _fp / img_area
                 fn[image_idx, attr_idx] = _fn / img_area
 
+                if mask_stats_list is not None:
+                    empty = np.zeros((img_h, img_w))
+                    gt_mask = mask_utils.decode(gt_rle) if gt_rle is not None else empty
+                    pd_mask = mask_utils.decode(pd_rle) if pd_rle is not None else empty
+                    mask_stats_list.append((
+                        attr_id,
+                        gt_mask, pd_mask,
+                        _prec, _rec, _iou,
+                        _util,
+                    ))
+
+                if attr_id in MODE_TO_ATTR_ID['multimodal']:
+                    vis_img = True
+
+            if mask_stats_list is not None and vis_img:
+                # Visualize summary
+                vis_out_path = osp.join(visualize_summary_dir, image_id + '.jpg')
+                self.visualize_img_summary(mask_stats_list, image_id, vis_out_path)
+
+                # Visualize per attribute mask
+                self.visualize_attr_stats(mask_stats_list, image_id, visualize_attr_dir)
+                del mask_stats_list
+
         self.evalImgs['precision'] = precision
         self.evalImgs['recall'] = recall
         self.evalImgs['iou'] = iou
@@ -471,11 +417,11 @@ le
         self.evalImgs['fn'] = fn
 
         toc = time.time()
-        print('DONE (t={:0.2f}s).'.format(toc - tic))
+        print('DONE (t={:0.2f}s)  # Masks ignored = {}/{}'.format(toc - tic, n_masks_ignored, (n_masks_used+n_masks_ignored)))
 
-    def visualize_img(self, mask_stats_list, image_id, vis_out_path):
+    def visualize_img_summary(self, mask_stats_list, image_id, vis_out_path):
         """
-
+        Visualizes summary for entire image -- for each gt/pred mask, visualize masks and write (P, R, IoU) scores
         :param mask_stats_list:  List of (attr_id, gt_mask, pred_mask, prec, rec, iou)
         :param vis_out_path:
         :return:
@@ -502,7 +448,7 @@ le
         ax = axarr[0, 0]
         ax.imshow(im)
 
-        for _idx, (attr_id, gt_mask, pred_mask, _prec, _rec, _iou) in enumerate(mask_stats_list):
+        for _idx, (attr_id, gt_mask, pred_mask, _prec, _rec, _iou, _util) in enumerate(mask_stats_list):
             row_idx = _idx + 1
 
             # Plot GT  --------------------------------------
@@ -536,12 +482,75 @@ le
             ax = axarr[row_idx, col_idx]
             # ax.set_xlim([0, 1])
             # ax.set_ylim([0, 1])
-            text_str = "precision: {:.2f}\nrecall: {:.2f}\niou: {:.2f}".format(_prec*100, _rec*100, _iou*100)
+            text_str = "precision: {:.2f}\nrecall: {:.2f}\niou: {:.2f}".format(_prec*100, _rec*100,
+                                                                                             _iou*100)
             ax.text(0.1, 0.5, text_str, fontsize='large')
 
         plt.tight_layout()
         plt.savefig(vis_out_path, bbox_inches='tight')
         plt.close()
+
+    def visualize_attr_stats(self, mask_stats_list, image_id, vis_out_path):
+        """
+        Visualize masks per image. Additionally, sort by predictions by score.
+        :param mask_stats_list:  List of (attr_id, gt_mask, pred_mask, prec, rec, iou)
+        :param vis_out_path:
+        :return:
+        """
+        mask_stats_list = sorted(mask_stats_list, key=lambda x: x[0])  # Sort by attr_id
+        im = Image.open(self.image_id_index[image_id]['image_path'])
+        w, h = im.size
+
+        for _idx, (attr_id, gt_mask, pred_mask, _prec, _rec, _iou, _util) in enumerate(mask_stats_list):
+
+            if attr_id not in MODE_TO_ATTR_ID['multimodal']:
+                continue
+
+            fig, axarr = plt.subplots(nrows=1, ncols=2, figsize=(20, 15))
+
+            # --- GT Mask ----------------------------------------------------
+            ax = axarr[0]
+            ax.imshow(im, alpha=0.5)
+            gt_col_mask = bimask_to_rgba(gt_mask, self.colors[0])
+            ax.imshow(gt_col_mask, alpha=0.8)
+            ax.axis('off')
+
+            # --- Pred Mask --------------------------------------------------
+            ax = axarr[1]
+            ax.imshow(im, alpha=0.5)
+            pred_col_mask = bimask_to_rgba(pred_mask, self.colors[0])
+            ax.imshow(pred_col_mask, alpha=0.8)
+            ax.axis('off')
+
+            ax.set_title('{}:   P = {:.2f}    R = {:.2f}    IoU = {:.2f}'.format(self.attr_id_to_name[attr_id],
+                                                                                        _prec, _rec, _iou))
+
+            # --- Save Figure ------------------------------------------------
+            vis_attr_out_path = osp.join(vis_out_path, attr_id)
+            for _d in ['FN', 'FP', 'FI']:
+                _od = osp.join(vis_attr_out_path, _d)
+                if not osp.exists(_od):
+                    os.makedirs(_od)
+            if _prec is np.nan:
+                # Precision is undefined (i.e., GT contains mask, Pred does not)
+                im_name = '{}.jpg'.format(image_id)
+                vis_im_out_path = osp.join(vis_attr_out_path, 'FN', im_name)
+            elif _rec is np.nan:
+                # Recall is undefined (i.e., GT does not contain mask, Pred does)
+                im_name = '{}.jpg'.format(image_id)
+                vis_im_out_path = osp.join(vis_attr_out_path, 'FP', im_name)
+            elif _iou is np.nan:
+                # IoU is undefined (this should not occur, but handle it anyway)
+                im_name = '{}.jpg'.format(image_id)
+                vis_im_out_path = osp.join(vis_attr_out_path, 'FI', im_name)
+            else:
+                # Valid Precision and Recall
+                im_name = '{:.0f}_{}.jpg'.format((_iou * 10**4), image_id)
+                vis_im_out_path = osp.join(vis_attr_out_path, im_name)
+
+            plt.tight_layout()
+            plt.savefig(vis_im_out_path, bbox_inches='tight')
+            plt.close()
 
     def anno_to_bimask(self, dets, img_size, min_side_length=400.0):
         """
@@ -655,6 +664,7 @@ le
         tp = self.evalImgs['tp']  # N x K matrix
         fp = self.evalImgs['fp']
         fn = self.evalImgs['fn']
+        pos = tp + fp
 
         # Calculate per-class stats
         overall_precision = np.zeros(len(p.attrIds))
@@ -664,6 +674,8 @@ le
         overall_tp = np.zeros(len(p.attrIds))
         overall_fp = np.zeros(len(p.attrIds))
         overall_fn = np.zeros(len(p.attrIds))
+
+        overall_pos = np.zeros(len(p.attrIds))
 
         for attr_idx, attr_id in enumerate(p.attrIds):
             # Precision, Recall, IoU averaged per image
@@ -681,6 +693,8 @@ le
             overall_fp[attr_idx] = np.mean(m[m > -1])
             m = fn[:, attr_idx]
             overall_fn[attr_idx] = np.mean(m[m > -1])
+            m = pos[:, attr_idx]
+            overall_pos[attr_idx] = np.mean(m[m > -1])
 
             if (overall_tp[attr_idx] + overall_fp[attr_idx]) > 0:
                 overall_precision[attr_idx] = overall_tp[attr_idx] / (overall_tp[attr_idx] + overall_fp[attr_idx])
@@ -692,6 +706,7 @@ le
         self.overall_stats['precision'] = overall_precision
         self.overall_stats['recall'] = overall_recall
         self.overall_stats['iou'] = overall_iou
+        self.overall_stats['positives'] = overall_pos
 
         toc = time.time()
         print('DONE (t={:0.2f}s).'.format(toc - tic))
@@ -770,6 +785,13 @@ def main():
         attr_id_to_idx = {v:k for k, v in idx_to_attr_id.iteritems()}
 
         out_dct = dict()
+
+        # Metadata
+        out_dct['threshold'] = params['threshold']
+        out_dct['gt_file'] = params['gt_file']
+        out_dct['pred_file'] = params['pred_file']
+        out_dct['created_at'] = str(datetime.datetime.now())
+
         # --- Overall stats
         out_dct['overall'] = {
             'precision': np.mean(vispr.overall_stats['precision']),
