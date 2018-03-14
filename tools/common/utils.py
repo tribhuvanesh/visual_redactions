@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 from PIL import Image
 from scipy.misc import imread
 
-from privacy_filters import DS_ROOT, SEG_ROOT
+from privacy_filters import SEG_ROOT
 from privacy_filters.tools.common.image_utils import get_image_size
 
 __author__ = "Tribhuvanesh Orekondy"
@@ -39,17 +39,14 @@ IGNORE_IF_FILE_ATTR = {
 override_if_regions_exist = True
 
 
-def load_attributes(v1_attributes=False):
+def load_attributes():
     """
     Return mappings of:
     a) attribute_id -> attribute_name
     b) attribute_id (a string eg., a4_gender) -> attribute_idx (a number)
     :return:
     """
-    if v1_attributes:
-        attributes_path = osp.join(DS_ROOT, 'attributes.tsv')
-    else:
-        attributes_path = osp.join(SEG_ROOT, 'attributes.tsv')
+    attributes_path = osp.join(SEG_ROOT, 'attributes.tsv')
     attr_id_to_name = dict()
     attr_id_to_idx = dict()
 
@@ -129,7 +126,7 @@ def get_image_filename_index():
     else:
         print 'Creating filename index ...'
         fname_index = dict()
-        images_dir = osp.join(DS_ROOT, 'images')
+        images_dir = osp.join(SEG_ROOT, 'images')
         for fold in os.listdir(images_dir):
             for img_filename in os.listdir(osp.join(images_dir, fold)):
                 image_path = osp.join(images_dir, fold, img_filename)
@@ -150,16 +147,13 @@ def get_image_id_info_index():
     else:
         print 'Creating filename index ...'
         image_id_index = dict()
-        images_dir = osp.join(DS_ROOT, 'images')
-        anno_dir = osp.join(DS_ROOT, 'annotations')
+        images_dir = osp.join(SEG_ROOT, 'images')
         for fold in os.listdir(images_dir):
             for img_filename in os.listdir(osp.join(images_dir, fold)):
                 image_id, _ = osp.splitext(img_filename)
                 image_path = osp.join(images_dir, fold, img_filename)
-                anno_path = osp.join(anno_dir, fold, image_id + '.json')
                 image_id_index[image_id] = {
                     'image_path': image_path,
-                    'anno_path': anno_path,
                     'fold': fold
                 }
         pickle.dump(image_id_index, open(index_path, 'wb'))

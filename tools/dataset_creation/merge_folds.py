@@ -52,6 +52,7 @@ def anno_stats(file_id_to_img_anno):
     stats_dct['attr_id_to_n_img'] = attr_id_to_n_img
     stats_dct['attr_id_to_n_inst'] = attr_id_to_n_inst
     stats_dct['n_attr'] = len(attr_id_to_n_inst)
+    stats_dct['n_instances'] = sum(attr_id_to_n_inst.values()),
     stats_dct['present_attr'] = sorted(attr_id_to_n_inst.keys())
     return stats_dct
 

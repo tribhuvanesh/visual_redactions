@@ -39,87 +39,12 @@ import pprint
 from privacy_filters.tools.common.image_utils import bimask_to_rgba
 from privacy_filters.tools.common.utils import load_attributes_shorthand, get_image_id_info_index
 from privacy_filters.tools.evaltools.evaltools import compute_eval_metrics
+from privacy_filters.config import *
 
 __author__ = "Tribhuvanesh Orekondy"
 __maintainer__ = "Tribhuvanesh Orekondy"
 __email__ = "orekondy@mpi-inf.mpg.de"
 __status__ = "Development"
-
-
-MIN_PIXELS = 25**2   # Ignore this mask if it contains under these many pixels
-
-SIZE_TO_ATTR_ID = {
-    'small': [u'a106_address_current_all',
-                 u'a107_address_home_all',
-                 u'a108_license_plate_all',
-                 u'a111_name_all',
-                 u'a24_birth_date',
-                 u'a49_phone',
-                 u'a73_landmark',
-                 u'a82_date_time',
-                 u'a8_signature',
-                 u'a90_email',],
-    'medium': [u'a105_face_all',
-                 u'a109_person_body',
-                 u'a110_nudity_all',
-                 u'a26_handwriting',
-                 u'a30_credit_card',
-                 u'a39_disability_physical',
-                 u'a43_medicine',
-                 u'a7_fingerprint', ],
-    'large': [u'a31_passport',
-                 u'a32_drivers_license',
-                 u'a33_student_id',
-                 u'a35_mail',
-                 u'a37_receipt',
-                 u'a38_ticket',
-              ],
-}
-
-MODE_TO_ATTR_ID = {
-    'textual': [u'a106_address_current_all',
-                 u'a107_address_home_all',
-                 u'a111_name_all',
-                 u'a24_birth_date',
-                 u'a49_phone',
-                 u'a73_landmark',
-                 u'a82_date_time',
-                 u'a90_email',],
-    'visual': [u'a105_face_all',
-                 u'a108_license_plate_all',
-                 u'a109_person_body',
-                 u'a110_nudity_all',
-                 u'a26_handwriting',
-                 u'a39_disability_physical',
-                 u'a43_medicine',
-                 u'a7_fingerprint',
-                 u'a8_signature',],
-    'multimodal': [u'a30_credit_card',
-                 u'a31_passport',
-                 u'a32_drivers_license',
-                 u'a33_student_id',
-                 u'a35_mail',
-                 u'a37_receipt',
-                 u'a38_ticket',],
-}
-
-IGNORE_ATTR = [
-    'a70_education_history',
-    'a29_ausweis',
-    'a18_ethnic_clothing',
-    'a85_username',
-]
-
-
-# Utility
-def pr2util(pr):
-    w1 = 0.83770739
-    w2 = 0.26647363
-    # Linear Model
-    utility = 1.0 - ((w1 * pr) + (w2 * np.square(pr)))
-    # Clip to [0, 1]
-    utility = np.minimum(1.0, np.maximum(0.0, utility))
-    return utility
 
 
 class VISPRSegEvalSimple:
@@ -368,14 +293,6 @@ class VISPRSegEvalSimple:
                 else:
                     _iou = np.nan
 
-                if (_tp + _fp) > 0.0:
-                    # % of image redacted
-                    _pr = (_tp + _fp) / img_area
-                    _util = pr2util(_pr)
-                else:
-                    _util = np.nan
-
-
                 precision[image_idx, attr_idx] = _prec
                 recall[image_idx, attr_idx] = _rec
                 iou[image_idx, attr_idx] = _iou
@@ -393,7 +310,6 @@ class VISPRSegEvalSimple:
                         attr_id,
                         gt_mask, pd_mask,
                         _prec, _rec, _iou,
-                        _util,
                     ))
 
                 if attr_id in MODE_TO_ATTR_ID['multimodal']:
