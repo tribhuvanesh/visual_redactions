@@ -29,7 +29,8 @@ from nltk import word_tokenize, pos_tag, ne_chunk
 from nltk.chunk import conlltags2tree, tree2conlltags
 
 from nltk.tag.stanford import StanfordNERTagger
-st = StanfordNERTagger('/BS/orekondy2/work/privacy_filters/cache/stanford-ner-2014-06-16/classifiers/english.muc.7class.caseless.distsim.crf.ser.gz',
+st = StanfordNERTagger(osp.join(Paths.CACHE_PATH, 'stanford-ner-2014-06-16', 'classifiers',
+                                'english.muc.7class.caseless.distsim.crf.ser.gz'),
                        '/BS/orekondy2/work/opt/CoreNLP/stanford-corenlp.jar',
                     encoding='utf-8')
 

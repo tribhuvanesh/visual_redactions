@@ -29,6 +29,12 @@ __maintainer__ = "Tribhuvanesh Orekondy"
 __email__ = "orekondy@mpi-inf.mpg.de"
 __status__ = "Development"
 
+FNAMES_PATH = osp.join(Paths.CACHE_PATH, 'names/fnames.txt')
+LNAMES_PATH = osp.join(Paths.CACHE_PATH, 'names/lnames.txt')
+
+GEO_LOC_PATH = osp.join(Paths.CACHE_PATH, 'locations/allCountries.txt')
+WIKI_LOC_PATH = osp.join(Paths.CACHE_PATH, 'locations/cities_and_countries.txt')
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -56,12 +62,9 @@ def main():
 
     # --- Load Priors --------------------------------------------------------------------------------------------------
     # ------ Names
-    fnames_path = '/BS/orekondy2/work/privacy_filters/cache/names/fnames.txt'
-    lnames_path = '/BS/orekondy2/work/privacy_filters/cache/names/lnames.txt'
-
     names_set = set()
 
-    for name_path in [fnames_path, lnames_path]:
+    for name_path in [FNAMES_PATH, LNAMES_PATH]:
         for _name in open(name_path):
             names_set.add(_name.lower().strip())
 
@@ -69,28 +72,28 @@ def main():
 
     # ------ Locations
     # Option A --- GeoNames
-    # loc_path = '/BS/orekondy2/work/privacy_filters/cache/locations/allCountries.txt'
-    # location_set = set()
-    #
-    # # # For more information: http://download.geonames.org/export/dump/
-    # with open(loc_path) as rf:
-    #     for line in rf:
-    #         tokens = line.strip().split('\t')
-    #         asciiname = tokens[2]
-    #
-    #         # Use only names of (A): country, state, region or (P): city, village, etc
-    #         feature_class = tokens[6]
-    #         if feature_class in ['A', 'P']:
-    #             location_set.add(asciiname.lower())
-
-    # Option B --- Wiki Names
-    loc_path = '/BS/orekondy2/work/privacy_filters/cache/locations/cities_and_countries.txt'
+    loc_path = osp.join(Paths.CACHE_PATH, 'locations/allCountries.txt')
     location_set = set()
 
+    # # For more information: http://download.geonames.org/export/dump/
     with open(loc_path) as rf:
         for line in rf:
-            loc = line.strip()
-            location_set.add(loc.lower())
+            tokens = line.strip().split('\t')
+            asciiname = tokens[2]
+
+            # Use only names of (A): country, state, region or (P): city, village, etc
+            feature_class = tokens[6]
+            if feature_class in ['A', 'P']:
+                location_set.add(asciiname.lower())
+
+    # Option B --- Wiki Names
+    # loc_path = osp.join(Paths.CACHE_PATH, 'locations/cities_and_countries.txt')
+    # location_set = set()
+    #
+    # with open(loc_path) as rf:
+    #     for line in rf:
+    #         loc = line.strip()
+    #         location_set.add(loc.lower())
 
     print 'Loaded {} locations'.format(len(location_set))
 

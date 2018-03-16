@@ -81,3 +81,5 @@ class Paths:
     TRAINVAL_ANNO_PATH = osp.join(ANNO_ROOT, 'trainval2017.json')
     VAL_ANNO_PATH = osp.join(ANNO_ROOT, 'val2017.json')
     TEST_ANNO_PATH = osp.join(ANNO_ROOT, 'test2017.json')
+
+    CACHE_PATH = osp.join(SRC_ROOT, 'cache')
