@@ -76,7 +76,10 @@ class Paths:
     SRC_ROOT = dirname(CONFIG_PATH)
     PROJECT_ROOT = dirname(SRC_ROOT)
 
+    IMAGES_PATH = osp.join(PROJECT_ROOT, 'images')
+
     ANNO_ROOT = osp.join(PROJECT_ROOT, 'annotations', '2017_v1')
+    ANNO_EXTRA_ROOT = osp.join(PROJECT_ROOT, 'annotations-extra')
     TRAIN_ANNO_PATH = osp.join(ANNO_ROOT, 'train2017.json')
     TRAINVAL_ANNO_PATH = osp.join(ANNO_ROOT, 'trainval2017.json')
     VAL_ANNO_PATH = osp.join(ANNO_ROOT, 'val2017.json')

@@ -200,6 +200,8 @@ class VISPRSegEvalSimple:
         fp = -np.ones((n_imgs, n_attr), dtype=np.float32)
         fn = -np.ones((n_imgs, n_attr), dtype=np.float32)
 
+        rel_sizes = -np.ones((n_imgs, n_attr), dtype=np.float32)
+
         precision = -np.ones((n_imgs, n_attr), dtype=np.float32)
         recall    = -np.ones((n_imgs, n_attr), dtype=np.float32)
         iou       = -np.ones((n_imgs, n_attr), dtype=np.float32)
@@ -297,6 +299,9 @@ class VISPRSegEvalSimple:
                 recall[image_idx, attr_idx] = _rec
                 iou[image_idx, attr_idx] = _iou
 
+                if gt_rle is not None:
+                    rel_sizes[image_idx, attr_idx] = mask_utils.area(gt_rle) / img_area
+
                 # Normalized by image area
                 tp[image_idx, attr_idx] = _tp / img_area
                 fp[image_idx, attr_idx] = _fp / img_area
@@ -327,6 +332,8 @@ class VISPRSegEvalSimple:
         self.evalImgs['precision'] = precision
         self.evalImgs['recall'] = recall
         self.evalImgs['iou'] = iou
+
+        self.evalImgs['rel_sizes'] = rel_sizes
 
         self.evalImgs['tp'] = tp
         self.evalImgs['fp'] = fp
