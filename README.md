@@ -1,4 +1,10 @@
-# Connecting Pixels to Privacy and Utility: Automatic Redaction of Private Information in Images, CVPR '18
+# Connecting Pixels to Privacy and Utility: Automatic Redaction of Private Information in Images
+
+**Tribhuvanesh Orekondy, Mario Fritz, Bernt Schiele**    
+Max Planck Institute for Informatics
+
+For details, refer to our paper: 
+[Connecting Pixels to Privacy and Utility: Automatic Redaction of Private Information in Images](http://openaccess.thecvf.com/content_cvpr_2018/papers/Orekondy_Connecting_Pixels_to_CVPR_2018_paper.pdf), CVPR 2018
 
 ## Abstract
 Images convey a broad spectrum of personal information. If such images are shared on social media platforms, this personal information is leaked which conflicts with the privacy of depicted persons. Therefore, we aim for automated approaches to redact such private information and thereby protect privacy of the individual. By conducting a user study we find that obfuscating the image regions related to the private information leads to privacy while retaining utility of the images. Moreover, by varying the size of the regions different privacy-utility trade-offs can be achieved. Our findings argue for a redaction by segmentation paradigm. Hence, we propose the first sizable dataset of private images "in the wild" annotated with pixel and instance level labels across a broad range of privacy classes. We present the first model for automatic redaction of diverse private information. It is effective at achieving various privacy-utility trade-offs within 83% of the performance of manual redaction.
