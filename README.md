@@ -45,7 +45,7 @@ python privacy_filters/tools/evaltools/calc_ap.py path/to/predicted-curves.json
 ```
 
 ## Contact
-For any problems, please contact [Tribhuvanesh Orekondy](https://www.mpi-inf.mpg.de/departments/computer-vision-and-multimodal-computing/people/tribhuvanesh-orekondy/)
+For any problems, please contact [Tribhuvanesh Orekondy](https://www.mpi-inf.mpg.de/departments/computer-vision-and-multimodal-computing/people/tribhuvanesh-orekondy/) (orekondy at mpi-inf dot mpg dot de)
 
 ## Citation
 ```
