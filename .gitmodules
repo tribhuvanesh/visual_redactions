@@ -1,0 +1,3 @@
+[submodule "models/visual/FCIS"]
+	path = models/visual/FCIS
+	url = git@github.com:tribhuvanesh/FCIS.git
